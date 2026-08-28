@@ -38,8 +38,11 @@ const User = sequelize.define('User', {
     allowNull: true,
   },
   role: {
-    type: DataTypes.ENUM('admin', 'pelanggan'),
+    type: DataTypes.STRING(20),
     defaultValue: 'pelanggan',
+    validate: {
+      isIn: { args: [['admin', 'pelanggan']], msg: 'Role tidak valid' },
+    },
   },
 }, {
   tableName: 'users',

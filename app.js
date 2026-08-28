@@ -13,7 +13,7 @@ const pesananRoutes = require('./routes/pesananRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // ===== MIDDLEWARE GLOBAL =====
 app.use(cors());
@@ -71,8 +71,8 @@ const startServer = async () => {
     await sequelize.authenticate();
     console.log('✅ Koneksi database berhasil.');
 
-    // Sync tabel otomatis (alter: update kolom yang berubah tanpa hapus data)
-    await sequelize.sync({ alter: true });
+    // Set DB_SYNC_ALTER=true only when intentionally updating an existing schema.
+    await sequelize.sync({ alter: process.env.DB_SYNC_ALTER === 'true' });
     console.log('✅ Sinkronisasi tabel selesai.');
 
     app.listen(PORT, () => {
