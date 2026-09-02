@@ -10,7 +10,7 @@ const {
   bukaEvent,
 } = require('../controllers/eventController');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
-const { upload, handleUploadError } = require('../middleware/uploadMiddleware');
+const { upload, uploadToCloudinary, handleUploadError } = require('../middleware/uploadMiddleware');
 
 // GET /api/event              — semua event (publik)
 router.get('/', getAllEvent);
@@ -19,10 +19,10 @@ router.get('/', getAllEvent);
 router.get('/:id', getEventById);
 
 // POST /api/event             — tambah event (admin)
-router.post('/', protect, adminOnly, upload.single('poster'), handleUploadError, createEvent);
+router.post('/', protect, adminOnly, upload.single('poster'), handleUploadError, uploadToCloudinary, createEvent);
 
 // PUT /api/event/:id          — update event (admin)
-router.put('/:id', protect, adminOnly, upload.single('poster'), handleUploadError, updateEvent);
+router.put('/:id', protect, adminOnly, upload.single('poster'), handleUploadError, uploadToCloudinary, updateEvent);
 
 // DELETE /api/event/:id       — hapus event (admin)
 router.delete('/:id', protect, adminOnly, deleteEvent);

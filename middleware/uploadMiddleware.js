@@ -1,41 +1,33 @@
 const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
 
-// Pastikan folder uploads tersedia
-const ensureDir = (dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+// Tentukan folder tujuan berdasarkan base URL route
+// (menggantikan folder Cloudinary tiket-konser/artis, /event, /bukti_bayar)
+const getUploadFolder = (req) => {
+  if (req.baseUrl.includes('artis')) return 'uploads/artis';
+  if (req.baseUrl.includes('event')) return 'uploads/event';
+  if (req.baseUrl.includes('pesanan')) return 'uploads/bukti_bayar';
+  return 'uploads/lainnya';
 };
 
-// Konfigurasi penyimpanan file
+// Simpan langsung ke disk, per-folder sesuai route
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    let folder = 'uploads/';
-
-    if (req.baseUrl.includes('artis')) {
-      folder = 'uploads/artis/';
-    } else if (req.baseUrl.includes('event')) {
-      folder = 'uploads/event/';
-    } else if (req.baseUrl.includes('pesanan')) {
-      folder = 'uploads/bukti_bayar/';
-    }
-
-    ensureDir(folder);
+    const folder = getUploadFolder(req);
+    fs.mkdirSync(folder, { recursive: true }); // auto-create kalau belum ada
     cb(null, folder);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
   },
 });
 
 // Filter hanya file gambar
 const fileFilter = (req, file, cb) => {
   const allowedTypes = /jpeg|jpg|png|gif|webp/;
-  const isExtValid = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const isExtValid = allowedTypes.test(file.originalname.toLowerCase());
   const isMimeValid = allowedTypes.test(file.mimetype);
 
   if (isExtValid && isMimeValid) {
@@ -53,7 +45,21 @@ const upload = multer({
   },
 });
 
-// Error handler untuk multer
+/**
+ * Middleware setelah multer: timpa req.file.path (path absolut lokal)
+ * jadi URL publik yang bisa diakses via express.static.
+ * Controller yang baca req.file.path tidak perlu diubah.
+ */
+const uploadToCloudinary = (req, res, next) => {
+  if (!req.file) return next();
+
+  const relativePath = req.file.path.replace(/\\/g, '/'); // fix Windows backslash
+  req.file.path = `/${relativePath}`; // contoh: /uploads/artis/172xxx-123.jpg
+
+  next();
+};
+
+// Error handler untuk multer (tidak berubah)
 const handleUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
@@ -76,4 +82,4 @@ const handleUploadError = (err, req, res, next) => {
   next();
 };
 
-module.exports = { upload, handleUploadError };
+module.exports = { upload, uploadToCloudinary, handleUploadError };

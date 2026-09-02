@@ -9,7 +9,7 @@ const {
   getAllPesanan,
 } = require('../controllers/pesananController');
 const { protect, adminOnly, pelangganOnly } = require('../middleware/authMiddleware');
-const { upload, handleUploadError } = require('../middleware/uploadMiddleware');
+const { upload, uploadToCloudinary, handleUploadError } = require('../middleware/uploadMiddleware');
 
 // GET /api/pesanan                    — semua pesanan (admin)
 router.get('/', protect, adminOnly, getAllPesanan);
@@ -30,6 +30,7 @@ router.post(
   pelangganOnly,
   upload.single('bukti_bayar'),
   handleUploadError,
+  uploadToCloudinary,
   uploadBuktiBayar
 );
 

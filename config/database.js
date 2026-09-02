@@ -1,4 +1,5 @@
 const { Sequelize } = require('sequelize');
+
 require('dotenv').config();
 
 const sequelize = new Sequelize(
@@ -8,11 +9,17 @@ const sequelize = new Sequelize(
   {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
-    dialect: 'mysql',
+    dialect: 'postgres',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     define: {
       timestamps: true,
       underscored: true,
+    },
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false,
+      },
     },
   }
 );

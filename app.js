@@ -11,9 +11,10 @@ const eventRoutes = require('./routes/eventRoutes');
 const kategoriTiketRoutes = require('./routes/kategoriTiketRoutes');
 const pesananRoutes = require('./routes/pesananRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const forgotPasswordRoutes = require('./routes/forgotPasswordRoutes');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // ===== MIDDLEWARE GLOBAL =====
 app.use(cors());
@@ -25,6 +26,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ===== ROUTES =====
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', forgotPasswordRoutes); // /forgot-password, /verify-reset-otp, /resend-reset-otp, /reset-password
 app.use('/api/artis', artisRoutes);
 app.use('/api/event', eventRoutes);
 app.use('/api/kategori-tiket', kategoriTiketRoutes);
@@ -70,10 +72,7 @@ const startServer = async () => {
   try {
     await sequelize.authenticate();
     console.log('✅ Koneksi database berhasil.');
-
-    // Sync tabel otomatis (alter: update kolom yang berubah tanpa hapus data)
-    await sequelize.sync({ alter: true });
-    console.log('✅ Sinkronisasi tabel selesai.');
+    console.log('✅ Database siap digunakan.');
 
     app.listen(PORT, () => {
       console.log(`🚀 Server berjalan di http://localhost:${PORT}`);

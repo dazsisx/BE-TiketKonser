@@ -4,6 +4,7 @@ const Artis = require('./Artis');
 const Event = require('./Event');
 const KategoriTiket = require('./KategoriTiket');
 const Pesanan = require('./Pesanan');
+const PasswordResetOtp = require('./PasswordResetOtp');
 
 // ===== RELASI =====
 
@@ -27,6 +28,10 @@ Pesanan.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
 KategoriTiket.hasMany(Pesanan, { foreignKey: 'kategori_tiket_id', as: 'pesanan' });
 Pesanan.belongsTo(KategoriTiket, { foreignKey: 'kategori_tiket_id', as: 'kategori_tiket' });
 
+// User -> PasswordResetOtp (1 user punya banyak riwayat OTP reset password)
+User.hasMany(PasswordResetOtp, { foreignKey: 'user_id', as: 'password_reset_otps' });
+PasswordResetOtp.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+
 module.exports = {
   sequelize,
   User,
@@ -34,4 +39,5 @@ module.exports = {
   Event,
   KategoriTiket,
   Pesanan,
+  PasswordResetOtp,
 };
