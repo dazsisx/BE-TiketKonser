@@ -1,11 +1,11 @@
 # BE-TiketKonser — Backend REST API
 
-Backend REST API untuk Aplikasi Pemesanan Tiket Konser berbasis Node.js + Express + MySQL.
+Backend REST API untuk Aplikasi Pemesanan Tiket Konser berbasis Node.js + Express + PostgreSQL (Supabase).
 
 ## Tech Stack
 
 - **Node.js** + **Express**
-- **MySQL** + **Sequelize ORM**
+- **PostgreSQL (Supabase)** + **Sequelize ORM**
 - **JWT** untuk autentikasi
 - **bcryptjs** untuk enkripsi password
 - **Multer** untuk upload file
@@ -20,24 +20,32 @@ Backend REST API untuk Aplikasi Pemesanan Tiket Konser berbasis Node.js + Expres
 npm install
 ```
 
-### 2. Setup database
-Buat database MySQL:
-```sql
-CREATE DATABASE tiket_konser;
-```
+### 2. Setup database Supabase
+1. Buat project di Supabase.
+2. Ambil kredensial PostgreSQL dari **Connect > Connection pooling**.
+3. Gunakan pooler port `6543` untuk aplikasi, dan jangan commit password database.
+4. Tabel akan dibuat otomatis oleh Sequelize saat server pertama kali dijalankan.
 
 ### 3. Konfigurasi .env
-Edit file `.env` sesuaikan dengan konfigurasi MySQL kamu:
+Buat file `.env`, lalu isi dengan kredensial Supabase:
 ```
 PORT=3000
-DB_HOST=localhost
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=password_kamu
-DB_NAME=tiket_konser
-JWT_SECRET=tiketkonser_secret_key_2024
+DB_HOST=aws-0-region.pooler.supabase.com
+DB_PORT=6543
+DB_USER=postgres.project-ref
+DB_PASSWORD=password_database_supabase
+DB_NAME=postgres
+DB_SSL=true
+JWT_SECRET=ganti_dengan_secret_random_yang_panjang
 JWT_EXPIRES_IN=7d
+NODE_ENV=development
+DB_SYNC_ALTER=false
 ```
+
+Nilai `DB_HOST` pooler berbentuk `aws-0-<region>.pooler.supabase.com`, sedangkan
+`DB_USER` biasanya berbentuk `postgres.<project-ref>`. Salin nilai asli dari
+Supabase, bukan nilai contoh di atas. Jika memakai koneksi direct, gunakan host
+`db.<project-ref>.supabase.co`, port `5432`, dan user `postgres`.
 
 ### 4. Jalankan server
 ```bash
@@ -48,7 +56,28 @@ npm run dev
 npm start
 ```
 
-Tabel akan otomatis dibuat oleh Sequelize saat server pertama kali dijalankan.
+`DB_SYNC_ALTER=true` hanya diperlukan jika ingin Sequelize menyesuaikan struktur tabel lama. Untuk penggunaan normal, biarkan `false`.
+
+## Testing dengan Postman
+
+1. Jalankan backend dengan `npm run dev`.
+2. Buat request `GET http://localhost:3000` untuk memastikan server aktif.
+3. Register melalui `POST http://localhost:3000/api/auth/register` dengan Body
+    **raw > JSON**:
+    ```json
+    {
+      "nama": "Budi",
+      "email": "budi@example.com",
+      "password": "password123",
+      "no_telepon": "08123456789"
+    }
+    ```
+4. Login melalui `POST http://localhost:3000/api/auth/login`, lalu simpan token
+    dari response.
+5. Untuk endpoint private, buka tab **Authorization**, pilih **Bearer Token**,
+    dan masukkan token tersebut. Contoh: `GET /api/auth/profile`.
+
+Endpoint public seperti `GET /api/artis` dan `GET /api/event` tidak memerlukan token.
 
 ---
 

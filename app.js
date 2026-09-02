@@ -72,6 +72,9 @@ const startServer = async () => {
   try {
     await sequelize.authenticate();
     console.log('✅ Koneksi database berhasil.');
+
+    // Set DB_SYNC_ALTER=true only when intentionally updating an existing schema.
+    await sequelize.sync({ alter: process.env.DB_SYNC_ALTER === 'true' });
     console.log('✅ Database siap digunakan.');
 
     app.listen(PORT, () => {
