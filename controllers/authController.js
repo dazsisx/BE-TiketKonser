@@ -1,5 +1,19 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
+const { createClient } = require('@supabase/supabase-js');
+
+let supabaseAdmin;
+
+const getSupabaseAdmin = () => {
+  const secretKey =
+    process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!process.env.SUPABASE_URL || !secretKey) return null;
+  supabaseAdmin ??= createClient(
+    process.env.SUPABASE_URL,
+    secretKey
+  );
+  return supabaseAdmin;
+};
 
 // Generate JWT token
 const generateToken = (user) => {
@@ -52,6 +66,7 @@ const register = async (req, res) => {
         nama: user.nama,
         email: user.email,
         role: user.role,
+        avatar_url: user.avatar_url,
         token,
       },
     });
@@ -111,6 +126,7 @@ const login = async (req, res) => {
         nama: user.nama,
         email: user.email,
         role: user.role,
+        avatar_url: user.avatar_url,
         token,
       },
     });
@@ -157,6 +173,7 @@ const updateProfile = async (req, res) => {
         email: user.email,
         no_telepon: user.no_telepon,
         role: user.role,
+        avatar_url: user.avatar_url,
       },
     });
   } catch (error) {
@@ -174,4 +191,48 @@ const updateProfile = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile };
+const uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'File avatar wajib dipilih.' });
+    }
+
+    const supabase = getSupabaseAdmin();
+    if (!supabase) {
+      return res.status(500).json({ success: false, message: 'Konfigurasi Supabase Storage belum lengkap.' });
+    }
+
+    const extension = req.file.originalname.split('.').pop().toLowerCase();
+    const filePath = `${req.user.id}/${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: false,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    const user = await User.findByPk(req.user.id);
+    user.avatar_url = data.publicUrl;
+    await user.save({ hooks: false });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Avatar berhasil diperbarui.',
+      data: {
+        id: user.id,
+        nama: user.nama,
+        email: user.email,
+        role: user.role,
+        avatar_url: user.avatar_url,
+      },
+    });
+  } catch (error) {
+    console.error('uploadAvatar error:', error);
+    return res.status(500).json({ success: false, message: 'Gagal menyimpan avatar.' });
+  }
+};
+
+module.exports = { register, login, getProfile, updateProfile, uploadAvatar };

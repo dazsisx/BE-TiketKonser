@@ -1,11 +1,19 @@
 // services/emailService.js
 const { Resend } = require("resend");
 
-// RESEND_API_KEY hanya dibaca dari environment variable di backend.
-// Jangan pernah expose ini ke frontend / kirim ke client.
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "DRStar <no-reply@drstar.id>";
+let resend;
+
+function getResendClient() {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error(
+      "RESEND_API_KEY belum dikonfigurasi. Tambahkan API key Resend ke file .env backend."
+    );
+  }
+
+  resend ??= new Resend(process.env.RESEND_API_KEY);
+  return resend;
+}
 
 function buildOtpEmailHtml(otp, expiryMinutes) {
   return `
@@ -42,7 +50,7 @@ function buildOtpEmailHtml(otp, expiryMinutes) {
 }
 
 async function sendOtpEmail({ to, otp, expiryMinutes }) {
-  const { error } = await resend.emails.send({
+  const { error } = await getResendClient().emails.send({
     from: FROM_EMAIL,
     to,
     subject: "Kode Verifikasi Ubah Kata Sandi - DRStar",

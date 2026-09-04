@@ -45,6 +45,14 @@ const upload = multer({
   },
 });
 
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+});
+
 /**
  * Middleware setelah multer: timpa req.file.path (path absolut lokal)
  * jadi URL publik yang bisa diakses via express.static.
@@ -82,4 +90,4 @@ const handleUploadError = (err, req, res, next) => {
   next();
 };
 
-module.exports = { upload, uploadToCloudinary, handleUploadError };
+module.exports = { upload, avatarUpload, uploadToCloudinary, handleUploadError };

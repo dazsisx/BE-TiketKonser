@@ -40,7 +40,19 @@ JWT_SECRET=ganti_dengan_secret_random_yang_panjang
 JWT_EXPIRES_IN=7d
 NODE_ENV=development
 DB_SYNC_ALTER=false
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
+RESEND_FROM_EMAIL=DRStar <no-reply@domain-terverifikasi.com>
+SUPABASE_URL=https://project-ref.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_key_backend
+SUPABASE_SERVICE_ROLE_KEY=service_role_key_backend
 ```
+
+`RESEND_API_KEY` dan `RESEND_FROM_EMAIL` diperlukan untuk fitur lupa password.
+Buat API key di Resend dan gunakan alamat pengirim dari domain yang sudah diverifikasi.
+Gunakan `SUPABASE_SECRET_KEY` dari menu API Keys terbaru. `SUPABASE_SERVICE_ROLE_KEY`
+adalah nama lama yang masih didukung. Keduanya hanya boleh disimpan di backend. Buat bucket Storage
+bernama `avatars`, jadikan bucket publik, dan jalankan server dengan
+`DB_SYNC_ALTER=true` sekali untuk menambahkan kolom avatar ke tabel users.
 
 Nilai `DB_HOST` pooler berbentuk `aws-0-<region>.pooler.supabase.com`, sedangkan
 `DB_USER` biasanya berbentuk `postgres.<project-ref>`. Salin nilai asli dari
