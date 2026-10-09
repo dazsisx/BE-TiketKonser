@@ -7,18 +7,33 @@ const { Op } = require('sequelize');
 const getDashboard = async (req, res) => {
   try {
     // Total user pelanggan
-    const totalPelanggan = await User.count({ where: { role: 'pelanggan' } });
+    const totalPelanggan = await User.count({
+      where: { role: 'pelanggan' },
+    });
 
     // Total event
     const totalEvent = await Event.count();
-    const eventBuka = await Event.count({ where: { status: 'buka' } });
-    const eventTutup = await Event.count({ where: { status: 'tutup' } });
+    const eventBuka = await Event.count({
+      where: { status: 'aktif' },
+    });
+    const eventTutup = await Event.count({
+      where: { status: 'ditutup' },
+    });
 
     // Total pesanan berdasarkan status
     const totalPesanan = await Pesanan.count();
-    const pesananPending = await Pesanan.count({ where: { status_bayar: 'pending' } });
-    const pesananLunas = await Pesanan.count({ where: { status_bayar: 'lunas' } });
-    const pesananDitolak = await Pesanan.count({ where: { status_bayar: 'ditolak' } });
+
+    const pesananPending = await Pesanan.count({
+      where: { status_bayar: 'pending' },
+    });
+
+    const pesananLunas = await Pesanan.count({
+      where: { status_bayar: 'lunas' },
+    });
+
+    const pesananDitolak = await Pesanan.count({
+      where: { status_bayar: 'ditolak' },
+    });
 
     // Total pendapatan (hanya dari pesanan lunas)
     const pendapatan = await Pesanan.sum('total_harga', {
@@ -30,14 +45,35 @@ const getDashboard = async (req, res) => {
       where: { status_bayar: 'lunas' },
     });
 
+    // Total pesanan offline
+    const totalPesananOffline = await Pesanan.count({
+      where: { order_type: 'offline' },
+    });
+
+    // Total pendapatan offline (hanya dari pesanan lunas)
+    const pendapatanOffline = await Pesanan.sum('total_harga', {
+      where: {
+        order_type: 'offline',
+        status_bayar: 'lunas',
+      },
+    });
+
     // Total artis
     const totalArtis = await Artis.count();
 
     // 5 event dengan tiket terjual terbanyak
     const topEvent = await Event.findAll({
       include: [
-        { model: Artis, as: 'artis', attributes: ['nama'] },
-        { model: KategoriTiket, as: 'kategori_tiket', attributes: ['nama_kelas', 'kuota', 'terjual'] },
+        {
+          model: Artis,
+          as: 'artis',
+          attributes: ['nama'],
+        },
+        {
+          model: KategoriTiket,
+          as: 'kategori_tiket',
+          attributes: ['nama_kelas', 'kuota', 'terjual'],
+        },
       ],
       order: [['tanggal', 'ASC']],
       limit: 5,
@@ -47,9 +83,21 @@ const getDashboard = async (req, res) => {
     const pesananTerbaru = await Pesanan.findAll({
       where: { status_bayar: 'pending' },
       include: [
-        { model: User, as: 'user', attributes: ['nama', 'email'] },
-        { model: Event, as: 'event', attributes: ['nama_event'] },
-        { model: KategoriTiket, as: 'kategori_tiket', attributes: ['nama_kelas'] },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['nama', 'email'],
+        },
+        {
+          model: Event,
+          as: 'event',
+          attributes: ['nama_event'],
+        },
+        {
+          model: KategoriTiket,
+          as: 'kategori_tiket',
+          attributes: ['nama_kelas'],
+        },
       ],
       order: [['created_at', 'DESC']],
       limit: 5,
@@ -70,7 +118,12 @@ const getDashboard = async (req, res) => {
           pesanan_ditolak: pesananDitolak,
           total_tiket_terjual: totalTiketTerjual || 0,
           total_pendapatan: pendapatan || 0,
+
+          // Statistik pesanan offline
+          total_pesanan_offline: totalPesananOffline,
+          pendapatan_offline: pendapatanOffline || 0,
         },
+
         top_event: topEvent,
         pesanan_menunggu_verifikasi: pesananTerbaru,
       },

@@ -45,7 +45,7 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(20),
     defaultValue: 'pelanggan',
     validate: {
-      isIn: { args: [['admin', 'pelanggan']], msg: 'Role tidak valid' },
+      isIn: { args: [['admin', 'admin_offline', 'pelanggan']], msg: 'Role tidak valid' },
     },
   },
 }, {

@@ -1,6 +1,13 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 
+// Daftar role yang valid di sistem
+const ROLES = {
+  ADMIN: 'admin',
+  ADMIN_OFFLINE: 'admin_offline',
+  PELANGGAN: 'pelanggan',
+};
+
 // Middleware: cek apakah user sudah login (ada JWT valid)
 const protect = async (req, res, next) => {
   try {
@@ -55,9 +62,23 @@ const protect = async (req, res, next) => {
   }
 };
 
-// cek apakah user adalah admin
+// Middleware generik: izinkan satu atau lebih role.
+// Contoh: router.post('/offline', protect, authorize('admin', 'admin_offline'), handler)
+// Role dibaca dari database (lewat protect), bukan dari isi JWT,
+// jadi perubahan role langsung berlaku tanpa menunggu token kadaluarsa.
+const authorize = (...allowedRoles) => (req, res, next) => {
+  if (req.user && allowedRoles.includes(req.user.role)) {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    message: 'Akses ditolak. Anda tidak memiliki izin untuk fitur ini.',
+  });
+};
+
+// cek apakah user adalah admin (full admin saja)
 const adminOnly = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
+  if (req.user && req.user.role === ROLES.ADMIN) {
     return next();
   }
   return res.status(403).json({
@@ -68,7 +89,7 @@ const adminOnly = (req, res, next) => {
 
 // cek apakah user adalah pelanggan
 const pelangganOnly = (req, res, next) => {
-  if (req.user && req.user.role === 'pelanggan') {
+  if (req.user && req.user.role === ROLES.PELANGGAN) {
     return next();
   }
   return res.status(403).json({
@@ -77,4 +98,4 @@ const pelangganOnly = (req, res, next) => {
   });
 };
 
-module.exports = { protect, adminOnly, pelangganOnly };
+module.exports = { protect, authorize, adminOnly, pelangganOnly, ROLES };

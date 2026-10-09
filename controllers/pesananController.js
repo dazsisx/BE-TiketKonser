@@ -1,7 +1,8 @@
-const { Pesanan, Event, KategoriTiket, User } = require('../models');
+const { sequelize, Pesanan, Event, KategoriTiket, User } = require('../models');
 const QRCode = require('qrcode');
 const crypto = require('crypto');
 const fs = require('fs');
+const { withPembeli } = require('../utils/pesananFormat');
 
 // Generate kode tiket unik
 const generateKodeTiket = () => {
@@ -11,58 +12,62 @@ const generateKodeTiket = () => {
 // @desc    Buat pesanan tiket baru
 // @route   POST /api/pesanan
 // @access  Pelanggan
+const httpError = (status, message) => {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+};
+
 const buatPesanan = async (req, res) => {
   try {
-    const { event_id, kategori_tiket_id, jumlah } = req.body;
+    const { event_id, kategori_tiket_id } = req.body;
+    const jumlah = Number(req.body.jumlah);
 
-    if (!event_id || !kategori_tiket_id || !jumlah) {
+    if (!event_id || !kategori_tiket_id || !Number.isInteger(jumlah) || jumlah < 1) {
       return res.status(400).json({
         success: false,
         message: 'event_id, kategori_tiket_id, dan jumlah wajib diisi.',
       });
     }
 
-    // Cek event ada dan masih buka
-    const event = await Event.findByPk(event_id);
-    if (!event) {
-      return res.status(404).json({ success: false, message: 'Event tidak ditemukan.' });
-    }
-    if (event.status === 'tutup') {
-      return res.status(400).json({ success: false, message: 'Penjualan tiket untuk event ini sudah ditutup.' });
-    }
+    // Satu transaksi + row lock, supaya pembelian bersamaan tidak membuat stok minus
+    const pesanan = await sequelize.transaction(async (t) => {
+      const event = await Event.findByPk(event_id, { transaction: t });
+      if (!event) throw httpError(404, 'Event tidak ditemukan.');
+      if (event.status !== 'aktif') {
+        throw httpError(400, 'Penjualan tiket untuk event ini sedang tidak dibuka.');
+      }
 
-    // Cek kategori tiket
-    const kategori = await KategoriTiket.findOne({
-      where: { id: kategori_tiket_id, event_id },
-    });
-    if (!kategori) {
-      return res.status(404).json({ success: false, message: 'Kategori tiket tidak ditemukan.' });
-    }
-
-    // Cek sisa kuota
-    const sisaKuota = kategori.kuota - kategori.terjual;
-    if (jumlah > sisaKuota) {
-      return res.status(400).json({
-        success: false,
-        message: `Kuota tidak cukup. Sisa kuota: ${sisaKuota} tiket.`,
+      const kategori = await KategoriTiket.findOne({
+        where: { id: kategori_tiket_id, event_id },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
       });
-    }
+      if (!kategori) throw httpError(404, 'Kategori tiket tidak ditemukan.');
 
-    const total_harga = kategori.harga * jumlah;
-    const kode_tiket = generateKodeTiket();
+      const sisaKuota = kategori.kuota - kategori.terjual;
+      if (jumlah > sisaKuota) {
+        throw httpError(400, `Kuota tidak cukup. Sisa kuota: ${sisaKuota} tiket.`);
+      }
 
-    const pesanan = await Pesanan.create({
-      user_id: req.user.id,
-      event_id,
-      kategori_tiket_id,
-      jumlah,
-      total_harga,
-      kode_tiket,
-      status_bayar: 'pending',
+      const dibuat = await Pesanan.create(
+        {
+          user_id: req.user.id,
+          event_id,
+          kategori_tiket_id,
+          jumlah,
+          total_harga: Number(kategori.harga) * jumlah,
+          kode_tiket: generateKodeTiket(),
+          status_bayar: 'pending',
+          order_type: 'online',
+        },
+        { transaction: t }
+      );
+
+      await kategori.update({ terjual: kategori.terjual + jumlah }, { transaction: t });
+
+      return dibuat;
     });
-
-    // Update jumlah terjual
-    await kategori.update({ terjual: kategori.terjual + jumlah });
 
     return res.status(201).json({
       success: true,
@@ -70,6 +75,9 @@ const buatPesanan = async (req, res) => {
       data: pesanan,
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
     if (error.name === 'SequelizeValidationError') {
       return res.status(400).json({
         success: false,
@@ -90,29 +98,42 @@ const buatPesanan = async (req, res) => {
 const uploadBuktiBayar = async (req, res) => {
   try {
     const pesanan = await Pesanan.findOne({
-      where: { id: req.params.id, user_id: req.user.id },
+      where: {
+        id: req.params.id,
+        user_id: req.user.id,
+      },
     });
 
     if (!pesanan) {
-      return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+      return res.status(404).json({
+        success: false,
+        message: 'Pesanan tidak ditemukan.',
+      });
     }
 
     if (pesanan.status_bayar !== 'pending') {
       return res.status(400).json({
         success: false,
-        message: 'Hanya pesanan berstatus pending yang bisa upload bukti bayar.',
+        message:
+          'Hanya pesanan berstatus pending yang bisa upload bukti bayar.',
       });
     }
 
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'File bukti pembayaran wajib diupload.' });
+      return res.status(400).json({
+        success: false,
+        message: 'File bukti pembayaran wajib diupload.',
+      });
     }
 
-    await pesanan.update({ bukti_bayar: req.file.path });
+    await pesanan.update({
+      bukti_bayar: req.file.path,
+    });
 
     return res.status(200).json({
       success: true,
-      message: 'Bukti pembayaran berhasil diupload. Menunggu verifikasi admin.',
+      message:
+        'Bukti pembayaran berhasil diupload. Menunggu verifikasi admin.',
       data: pesanan,
     });
   } catch (error) {
@@ -129,7 +150,7 @@ const uploadBuktiBayar = async (req, res) => {
 // @access  Admin
 const verifikasiPembayaran = async (req, res) => {
   try {
-    const { aksi } = req.body; // 'setujui' atau 'tolak'
+    const { aksi } = req.body;
 
     if (!aksi || !['setujui', 'tolak'].includes(aksi)) {
       return res.status(400).json({
@@ -140,14 +161,29 @@ const verifikasiPembayaran = async (req, res) => {
 
     const pesanan = await Pesanan.findByPk(req.params.id, {
       include: [
-        { model: Event, as: 'event', attributes: ['nama_event', 'tanggal', 'lokasi'] },
-        { model: KategoriTiket, as: 'kategori_tiket', attributes: ['nama_kelas'] },
-        { model: User, as: 'user', attributes: ['nama', 'email'] },
+        {
+          model: Event,
+          as: 'event',
+          attributes: ['nama_event', 'tanggal', 'lokasi'],
+        },
+        {
+          model: KategoriTiket,
+          as: 'kategori_tiket',
+          attributes: ['nama_kelas'],
+        },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['nama', 'email'],
+        },
       ],
     });
 
     if (!pesanan) {
-      return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+      return res.status(404).json({
+        success: false,
+        message: 'Pesanan tidak ditemukan.',
+      });
     }
 
     if (pesanan.status_bayar !== 'pending') {
@@ -159,10 +195,17 @@ const verifikasiPembayaran = async (req, res) => {
 
     if (aksi === 'tolak') {
       // Kembalikan kuota tiket
-      const kategori = await KategoriTiket.findByPk(pesanan.kategori_tiket_id);
-      await kategori.update({ terjual: kategori.terjual - pesanan.jumlah });
+      const kategori = await KategoriTiket.findByPk(
+        pesanan.kategori_tiket_id
+      );
 
-      await pesanan.update({ status_bayar: 'ditolak' });
+      await kategori.update({
+        terjual: kategori.terjual - pesanan.jumlah,
+      });
+
+      await pesanan.update({
+        status_bayar: 'ditolak',
+      });
 
       return res.status(200).json({
         success: true,
@@ -207,15 +250,33 @@ const verifikasiPembayaran = async (req, res) => {
 const getRiwayatPesanan = async (req, res) => {
   try {
     const pesanan = await Pesanan.findAll({
-      where: { user_id: req.user.id },
+      where: {
+        user_id: req.user.id,
+      },
       include: [
         {
           model: Event,
           as: 'event',
-          attributes: ['id', 'nama_event', 'tanggal', 'lokasi', 'poster'],
-          include: [{ model: require('../models/Artis'), as: 'artis', attributes: ['nama'] }],
+          attributes: [
+            'id',
+            'nama_event',
+            'tanggal',
+            'lokasi',
+            'poster',
+          ],
+          include: [
+            {
+              model: require('../models/Artis'),
+              as: 'artis',
+              attributes: ['nama'],
+            },
+          ],
         },
-        { model: KategoriTiket, as: 'kategori_tiket', attributes: ['nama_kelas', 'harga'] },
+        {
+          model: KategoriTiket,
+          as: 'kategori_tiket',
+          attributes: ['nama_kelas', 'harga'],
+        },
       ],
       order: [['created_at', 'DESC']],
     });
@@ -240,15 +301,27 @@ const getRiwayatPesanan = async (req, res) => {
 const getDetailPesanan = async (req, res) => {
   try {
     const pesanan = await Pesanan.findOne({
-      where: { id: req.params.id, user_id: req.user.id },
+      where: {
+        id: req.params.id,
+        user_id: req.user.id,
+      },
       include: [
-        { model: Event, as: 'event' },
-        { model: KategoriTiket, as: 'kategori_tiket' },
+        {
+          model: Event,
+          as: 'event',
+        },
+        {
+          model: KategoriTiket,
+          as: 'kategori_tiket',
+        },
       ],
     });
 
     if (!pesanan) {
-      return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+      return res.status(404).json({
+        success: false,
+        message: 'Pesanan tidak ditemukan.',
+      });
     }
 
     return res.status(200).json({
@@ -269,11 +342,31 @@ const getDetailPesanan = async (req, res) => {
 // @access  Admin
 const getAllPesanan = async (req, res) => {
   try {
+    // Filter berdasarkan order_type jika diberikan
+    const where = {};
+
+    if (['online', 'offline'].includes(req.query.order_type)) {
+      where.order_type = req.query.order_type;
+    }
+
     const pesanan = await Pesanan.findAll({
+      where,
       include: [
-        { model: User, as: 'user', attributes: ['id', 'nama', 'email', 'no_telepon'] },
-        { model: Event, as: 'event', attributes: ['id', 'nama_event', 'tanggal'] },
-        { model: KategoriTiket, as: 'kategori_tiket', attributes: ['nama_kelas', 'harga'] },
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'nama', 'email', 'no_telepon'],
+        },
+        {
+          model: Event,
+          as: 'event',
+          attributes: ['id', 'nama_event', 'tanggal'],
+        },
+        {
+          model: KategoriTiket,
+          as: 'kategori_tiket',
+          attributes: ['nama_kelas', 'harga'],
+        },
       ],
       order: [['created_at', 'DESC']],
     });
@@ -281,7 +374,7 @@ const getAllPesanan = async (req, res) => {
     return res.status(200).json({
       success: true,
       total: pesanan.length,
-      data: pesanan,
+      data: pesanan.map(withPembeli),
     });
   } catch (error) {
     return res.status(500).json({

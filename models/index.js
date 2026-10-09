@@ -18,6 +18,7 @@ KategoriTiket.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
 
 // User -> Pesanan (1 user punya banyak pesanan)
 User.hasMany(Pesanan, { foreignKey: 'user_id', as: 'pesanan' });
+Pesanan.belongsTo(User, { foreignKey: 'dibuat_oleh', as: 'petugas' });
 Pesanan.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
 // Event -> Pesanan (1 event punya banyak pesanan)

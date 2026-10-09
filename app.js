@@ -12,6 +12,7 @@ const kategoriTiketRoutes = require('./routes/kategoriTiketRoutes');
 const pesananRoutes = require('./routes/pesananRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const forgotPasswordRoutes = require('./routes/forgotPasswordRoutes');
+const offlineRoutes = require('./routes/offlineRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,6 +33,7 @@ app.use('/api/event', eventRoutes);
 app.use('/api/kategori-tiket', kategoriTiketRoutes);
 app.use('/api/pesanan', pesananRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/offline', offlineRoutes);
 
 // Route default
 app.get('/', (req, res) => {

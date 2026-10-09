@@ -9,7 +9,7 @@ const Pesanan = sequelize.define('Pesanan', {
   },
   user_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     references: {
       model: 'users',
       key: 'id',
@@ -64,6 +64,36 @@ const Pesanan = sequelize.define('Pesanan', {
   catatan: {
     type: DataTypes.TEXT,
     allowNull: true,
+  },
+  // ===== Penjualan offline =====
+  order_type: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'online',
+    validate: {
+      isIn: { args: [['online', 'offline']], msg: 'order_type tidak valid' },
+    },
+  },
+  nama_pembeli: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  no_telepon_pembeli: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+  },
+  email_pembeli: {
+    type: DataTypes.STRING(150),
+    allowNull: true,
+  },
+  // Petugas (admin / admin_offline) yang mencatat transaksi offline
+  dibuat_oleh: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    references: {
+      model: 'users',
+      key: 'id',
+    },
   },
 }, {
   tableName: 'pesanan',

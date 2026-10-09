@@ -46,8 +46,8 @@ const Event = sequelize.define('Event', {
     },
   },
   status: {
-    type: DataTypes.ENUM('buka', 'tutup'),
-    defaultValue: 'buka',
+    type: DataTypes.ENUM('draft', 'aktif', 'ditutup', 'selesai'),
+    defaultValue: 'aktif',
   },
 }, {
   tableName: 'events',

@@ -97,7 +97,7 @@ const createEvent = async (req, res) => {
       lokasi,
       artis_id,
       poster: req.file ? req.file.path : null,
-      status: 'buka',
+      status: 'aktif',
     });
 
     return res.status(201).json({
@@ -221,7 +221,7 @@ const tutupEvent = async (req, res) => {
       });
     }
 
-    await event.update({ status: 'tutup' });
+    await event.update({ status: 'ditutup' });
 
     return res.status(200).json({
       success: true,
@@ -251,7 +251,7 @@ const bukaEvent = async (req, res) => {
       });
     }
 
-    await event.update({ status: 'buka' });
+    await event.update({ status: 'aktif' });
 
     return res.status(200).json({
       success: true,
