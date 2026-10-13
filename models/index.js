@@ -9,8 +9,8 @@ const PasswordResetOtp = require('./PasswordResetOtp');
 // ===== RELASI =====
 
 // Artis -> Event (1 artis punya banyak event)
-Artis.hasMany(Event, { foreignKey: 'artis_id', as: 'events' });
-Event.belongsTo(Artis, { foreignKey: 'artis_id', as: 'artis' });
+Artis.hasMany(Event, { foreignKey: 'artist_id', as: 'events' });
+Event.belongsTo(Artis, { foreignKey: 'artist_id', as: 'artis' });
 
 // Event -> KategoriTiket (1 event punya banyak kategori tiket)
 Event.hasMany(KategoriTiket, { foreignKey: 'event_id', as: 'kategori_tiket' });

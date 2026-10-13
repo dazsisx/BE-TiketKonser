@@ -70,6 +70,12 @@ npm start
 
 `DB_SYNC_ALTER=true` hanya diperlukan jika ingin Sequelize menyesuaikan struktur tabel lama. Untuk penggunaan normal, biarkan `false`.
 
+Jika database lama memiliki foreign key `events.artist_id` yang masih menunjuk ke
+tabel `artists`, jalankan SQL pada
+[`migrations/20261013_events_artist_fk.sql`](./migrations/20261013_events_artist_fk.sql)
+satu kali melalui Supabase SQL Editor. Backend aplikasi menyimpan data artis di
+tabel `artis`, sehingga foreign key acara harus menunjuk ke tabel tersebut.
+
 ## Testing dengan Postman
 
 1. Jalankan backend dengan `npm run dev`.
@@ -138,7 +144,7 @@ BE-TiketKonser/
 ```
 users          → id, nama, email, password, no_telepon, role
 artis          → id, nama, bio, foto, genre
-events         → id, nama_event, deskripsi, tanggal, lokasi, poster, artis_id (FK), status
+events         → id, nama_event, deskripsi, tanggal, lokasi, image_url, artist_id (FK → artis.id), status
 kategori_tiket → id, event_id (FK), nama_kelas, harga, kuota, terjual
 pesanan        → id, user_id (FK), event_id (FK), kategori_tiket_id (FK), jumlah,
                   total_harga, status_bayar, bukti_bayar, kode_tiket, qr_code

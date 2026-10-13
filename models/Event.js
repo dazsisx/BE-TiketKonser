@@ -33,13 +33,18 @@ const Event = sequelize.define('Event', {
       notEmpty: { msg: 'Lokasi tidak boleh kosong' },
     },
   },
-  poster: {
+  image_url: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  banner: {
     type: DataTypes.STRING(255),
     allowNull: true,
   },
-  artis_id: {
+  artist_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
+    field: 'artist_id',
     references: {
       model: 'artis',
       key: 'id',
@@ -51,6 +56,7 @@ const Event = sequelize.define('Event', {
   },
 }, {
   tableName: 'events',
+  timestamps: false,
 });
 
 module.exports = Event;

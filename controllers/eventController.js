@@ -1,6 +1,22 @@
 const { Event, Artis, KategoriTiket, Pesanan } = require('../models');
 const fs = require('fs');
 
+const normalizeEvent = (event) => {
+  if (!event) return null;
+  const source = typeof event.toJSON === 'function' ? event.toJSON() : event;
+  const artistId = source.artist_id ?? source.artis_id ?? null;
+  const posterUrl = source.image_url ?? source.banner ?? source.poster ?? null;
+
+  return {
+    ...source,
+    artis_id: artistId,
+    artist_id: artistId,
+    poster: posterUrl,
+    image_url: posterUrl,
+    banner: posterUrl,
+  };
+};
+
 // @desc    Ambil semua event
 // @route   GET /api/event
 // @access  Public
@@ -17,7 +33,7 @@ const getAllEvent = async (req, res) => {
     return res.status(200).json({
       success: true,
       total: events.length,
-      data: events,
+      data: events.map((event) => normalizeEvent(event)),
     });
   } catch (error) {
     return res.status(500).json({
@@ -47,9 +63,8 @@ const getEventById = async (req, res) => {
       });
     }
 
-    // Tambahkan info sisa kuota di setiap kategori
-    const eventData = event.toJSON();
-    eventData.kategori_tiket = eventData.kategori_tiket.map((k) => ({
+    const eventData = normalizeEvent(event);
+    eventData.kategori_tiket = (eventData.kategori_tiket || []).map((k) => ({
       ...k,
       sisa_kuota: k.kuota - k.terjual,
     }));
@@ -72,17 +87,17 @@ const getEventById = async (req, res) => {
 // @access  Admin
 const createEvent = async (req, res) => {
   try {
-    const { nama_event, deskripsi, tanggal, lokasi, artis_id } = req.body;
+    const { nama_event, deskripsi, tanggal, lokasi, artis_id, artist_id } = req.body;
+    const resolvedArtistId = Number(artis_id ?? artist_id);
 
-    if (!nama_event || !tanggal || !lokasi || !artis_id) {
+    if (!nama_event || !tanggal || !lokasi || !resolvedArtistId) {
       return res.status(400).json({
         success: false,
         message: 'Nama event, tanggal, lokasi, dan artis_id wajib diisi.',
       });
     }
 
-    // Cek artis ada
-    const artis = await Artis.findByPk(artis_id);
+    const artis = await Artis.findByPk(resolvedArtistId);
     if (!artis) {
       return res.status(404).json({
         success: false,
@@ -95,15 +110,15 @@ const createEvent = async (req, res) => {
       deskripsi: deskripsi || null,
       tanggal,
       lokasi,
-      artis_id,
-      poster: req.file ? req.file.path : null,
+      artist_id: resolvedArtistId,
+      image_url: req.file ? req.file.path : null,
       status: 'aktif',
     });
 
     return res.status(201).json({
       success: true,
       message: 'Event berhasil ditambahkan.',
-      data: event,
+      data: normalizeEvent(event),
     });
   } catch (error) {
     if (error.name === 'SequelizeValidationError') {
@@ -134,12 +149,14 @@ const updateEvent = async (req, res) => {
       });
     }
 
-    const { nama_event, deskripsi, tanggal, lokasi, artis_id, status } = req.body;
+    const { nama_event, deskripsi, tanggal, lokasi, artis_id, artist_id, status } = req.body;
+    const resolvedArtistId = Number(artis_id ?? artist_id ?? event.artist_id ?? event.artis_id);
+    const nextImageUrl = req.file ? req.file.path : (req.body.image_url ?? req.body.poster ?? event.image_url ?? event.poster ?? null);
 
-    // Hapus poster lama jika ada poster baru
-    if (req.file && event.poster) {
-      if (fs.existsSync(event.poster)) {
-        fs.unlinkSync(event.poster);
+    if (req.file && (event.image_url || event.banner || event.poster)) {
+      const oldPoster = event.image_url || event.banner || event.poster;
+      if (oldPoster && fs.existsSync(oldPoster)) {
+        fs.unlinkSync(oldPoster);
       }
     }
 
@@ -148,15 +165,15 @@ const updateEvent = async (req, res) => {
       deskripsi: deskripsi !== undefined ? deskripsi : event.deskripsi,
       tanggal: tanggal || event.tanggal,
       lokasi: lokasi || event.lokasi,
-      artis_id: artis_id || event.artis_id,
-      poster: req.file ? req.file.path : event.poster,
+      artist_id: resolvedArtistId,
+      image_url: nextImageUrl,
       status: status || event.status,
     });
 
     return res.status(200).json({
       success: true,
       message: 'Event berhasil diperbarui.',
-      data: event,
+      data: normalizeEvent(event),
     });
   } catch (error) {
     if (error.name === 'SequelizeValidationError') {
@@ -187,9 +204,9 @@ const deleteEvent = async (req, res) => {
       });
     }
 
-    // Hapus poster jika ada
-    if (event.poster && fs.existsSync(event.poster)) {
-      fs.unlinkSync(event.poster);
+    const oldPoster = event.image_url || event.banner || event.poster;
+    if (oldPoster && fs.existsSync(oldPoster)) {
+      fs.unlinkSync(oldPoster);
     }
 
     await event.destroy();

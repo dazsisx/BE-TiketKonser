@@ -158,12 +158,20 @@ const deleteArtis = async (req, res) => {
       });
     }
 
+    const eventCount = await Event.count({ where: { artist_id: artis.id } });
+    if (eventCount > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Artis masih digunakan oleh ${eventCount} acara. Hapus atau ubah acara tersebut terlebih dahulu.`,
+      });
+    }
+
+    await artis.destroy();
+
     // Hapus foto jika ada
     if (artis.foto && fs.existsSync(artis.foto)) {
       fs.unlinkSync(artis.foto);
     }
-
-    await artis.destroy();
 
     return res.status(200).json({
       success: true,
