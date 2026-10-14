@@ -1,5 +1,9 @@
 const { Artis, Event } = require('../models');
-const fs = require('fs');
+const { removeUploadFile, removeUploadFileIfUnused } = require('../utils/uploadPaths');
+
+// Hapus file foto lama hanya jika tidak ada artis lain yang masih memakainya
+const removeFotoIfUnused = (stored) =>
+  removeUploadFileIfUnused(stored, async () => (await Artis.count({ where: { foto: stored } })) > 0);
 
 // @desc    Ambil semua artis
 // @route   GET /api/artis
@@ -57,6 +61,7 @@ const getArtisById = async (req, res) => {
 // @route   POST /api/artis
 // @access  Admin
 const createArtis = async (req, res) => {
+  let saved = false;
   try {
     const { nama, bio, genre } = req.body;
 
@@ -73,6 +78,7 @@ const createArtis = async (req, res) => {
       genre: genre || null,
       foto: req.file ? req.file.path : null,
     });
+    saved = true;
 
     return res.status(201).json({
       success: true,
@@ -91,6 +97,9 @@ const createArtis = async (req, res) => {
       message: 'Terjadi kesalahan pada server.',
       error: error.message,
     });
+  } finally {
+    // Request gagal/ditolak: file yang baru diupload tidak boleh jadi yatim
+    if (!saved && req.file) await removeUploadFile(req.file.path);
   }
 };
 
@@ -98,6 +107,7 @@ const createArtis = async (req, res) => {
 // @route   PUT /api/artis/:id
 // @access  Admin
 const updateArtis = async (req, res) => {
+  let saved = false;
   try {
     const artis = await Artis.findByPk(req.params.id);
 
@@ -110,12 +120,7 @@ const updateArtis = async (req, res) => {
 
     const { nama, bio, genre } = req.body;
 
-    // Hapus foto lama kalau ada foto baru
-    if (req.file && artis.foto) {
-      if (fs.existsSync(artis.foto)) {
-        fs.unlinkSync(artis.foto);
-      }
-    }
+    const oldFoto = artis.foto;
 
     await artis.update({
       nama: nama || artis.nama,
@@ -123,6 +128,12 @@ const updateArtis = async (req, res) => {
       genre: genre !== undefined ? genre : artis.genre,
       foto: req.file ? req.file.path : artis.foto,
     });
+    saved = true;
+
+    // Foto lama dihapus hanya setelah DB berhasil diperbarui
+    if (req.file && oldFoto && oldFoto !== req.file.path) {
+      await removeFotoIfUnused(oldFoto);
+    }
 
     return res.status(200).json({
       success: true,
@@ -141,6 +152,8 @@ const updateArtis = async (req, res) => {
       message: 'Terjadi kesalahan pada server.',
       error: error.message,
     });
+  } finally {
+    if (!saved && req.file) await removeUploadFile(req.file.path);
   }
 };
 
@@ -168,16 +181,20 @@ const deleteArtis = async (req, res) => {
 
     await artis.destroy();
 
-    // Hapus foto jika ada
-    if (artis.foto && fs.existsSync(artis.foto)) {
-      fs.unlinkSync(artis.foto);
-    }
+    // Hapus foto hanya setelah record berhasil dihapus
+    if (artis.foto) await removeFotoIfUnused(artis.foto);
 
     return res.status(200).json({
       success: true,
       message: 'Artis berhasil dihapus.',
     });
   } catch (error) {
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: 'Artis masih digunakan oleh acara. Hapus atau ubah acara tersebut terlebih dahulu.',
+      });
+    }
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan pada server.',

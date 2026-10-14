@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { sequelize } = require('./models');
+const { UPLOAD_ROOT, PUBLIC_PREFIX } = require('./utils/uploadPaths');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -23,7 +24,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve folder uploads sebagai file statis
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(PUBLIC_PREFIX, express.static(UPLOAD_ROOT));
 
 // ===== ROUTES =====
 app.use('/api/auth', authRoutes);

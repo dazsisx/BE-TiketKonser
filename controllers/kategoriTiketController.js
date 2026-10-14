@@ -1,4 +1,4 @@
-const { KategoriTiket, Event } = require('../models');
+const { sequelize, KategoriTiket, Event, Pesanan } = require('../models');
 
 // @desc    Ambil semua kategori tiket berdasarkan event
 // @route   GET /api/kategori-tiket/event/:eventId
@@ -148,29 +148,57 @@ const updateKategori = async (req, res) => {
 // @access  Admin
 const deleteKategori = async (req, res) => {
   try {
-    const kategori = await KategoriTiket.findByPk(req.params.id);
-
-    if (!kategori) {
-      return res.status(404).json({
-        success: false,
-        message: 'Kategori tiket tidak ditemukan.',
+    await sequelize.transaction(async (t) => {
+      // Kunci baris kategori: pembuatan pesanan juga mengunci baris ini,
+      // jadi pesanan baru tidak bisa masuk di tengah proses penghapusan.
+      const kategori = await KategoriTiket.findByPk(req.params.id, {
+        transaction: t,
+        lock: t.LOCK.UPDATE,
       });
-    }
 
-    if (kategori.terjual > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Kategori tiket tidak bisa dihapus karena sudah ada tiket yang terjual.',
+      if (!kategori) {
+        const err = new Error('Kategori tiket tidak ditemukan.');
+        err.status = 404;
+        throw err;
+      }
+
+      if (kategori.terjual > 0) {
+        const err = new Error('Kategori tiket tidak bisa dihapus karena sudah ada tiket yang terjual.');
+        err.status = 400;
+        throw err;
+      }
+
+      // `terjual` turun lagi saat pembayaran ditolak, jadi 0 belum berarti tidak pernah
+      // dipesan. Pesanan dalam status apa pun tetap merupakan catatan transaksi.
+      const jumlahPesanan = await Pesanan.count({
+        where: { kategori_tiket_id: kategori.id },
+        transaction: t,
       });
-    }
+      if (jumlahPesanan > 0) {
+        const err = new Error(
+          `Kategori tiket tidak bisa dihapus karena sudah memiliki ${jumlahPesanan} pesanan.`
+        );
+        err.status = 409;
+        throw err;
+      }
 
-    await kategori.destroy();
+      await kategori.destroy({ transaction: t });
+    });
 
     return res.status(200).json({
       success: true,
       message: 'Kategori tiket berhasil dihapus.',
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: 'Kategori tiket tidak bisa dihapus karena masih terhubung dengan data lain.',
+      });
+    }
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan pada server.',

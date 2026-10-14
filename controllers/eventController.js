@@ -1,5 +1,14 @@
-const { Event, Artis, KategoriTiket, Pesanan } = require('../models');
-const fs = require('fs');
+const { Op } = require('sequelize');
+const { sequelize, Event, Artis, KategoriTiket, Pesanan } = require('../models');
+const { removeUploadFile, removeUploadFileIfUnused } = require('../utils/uploadPaths');
+
+// Hapus file poster lama hanya jika tidak ada event lain yang masih memakainya
+const removePosterIfUnused = (stored) =>
+  removeUploadFileIfUnused(
+    stored,
+    async () =>
+      (await Event.count({ where: { [Op.or]: [{ image_url: stored }, { banner: stored }] } })) > 0
+  );
 
 const normalizeEvent = (event) => {
   if (!event) return null;
@@ -86,6 +95,7 @@ const getEventById = async (req, res) => {
 // @route   POST /api/event
 // @access  Admin
 const createEvent = async (req, res) => {
+  let saved = false;
   try {
     const { nama_event, deskripsi, tanggal, lokasi, artis_id, artist_id } = req.body;
     const resolvedArtistId = Number(artis_id ?? artist_id);
@@ -114,6 +124,7 @@ const createEvent = async (req, res) => {
       image_url: req.file ? req.file.path : null,
       status: 'aktif',
     });
+    saved = true;
 
     return res.status(201).json({
       success: true,
@@ -132,6 +143,9 @@ const createEvent = async (req, res) => {
       message: 'Terjadi kesalahan pada server.',
       error: error.message,
     });
+  } finally {
+    // Request gagal/ditolak: file yang baru diupload tidak boleh jadi yatim
+    if (!saved && req.file) await removeUploadFile(req.file.path);
   }
 };
 
@@ -139,6 +153,7 @@ const createEvent = async (req, res) => {
 // @route   PUT /api/event/:id
 // @access  Admin
 const updateEvent = async (req, res) => {
+  let saved = false;
   try {
     const event = await Event.findByPk(req.params.id);
 
@@ -153,12 +168,7 @@ const updateEvent = async (req, res) => {
     const resolvedArtistId = Number(artis_id ?? artist_id ?? event.artist_id ?? event.artis_id);
     const nextImageUrl = req.file ? req.file.path : (req.body.image_url ?? req.body.poster ?? event.image_url ?? event.poster ?? null);
 
-    if (req.file && (event.image_url || event.banner || event.poster)) {
-      const oldPoster = event.image_url || event.banner || event.poster;
-      if (oldPoster && fs.existsSync(oldPoster)) {
-        fs.unlinkSync(oldPoster);
-      }
-    }
+    const oldPoster = event.image_url || event.banner || event.poster || null;
 
     await event.update({
       nama_event: nama_event || event.nama_event,
@@ -169,6 +179,12 @@ const updateEvent = async (req, res) => {
       image_url: nextImageUrl,
       status: status || event.status,
     });
+    saved = true;
+
+    // File lama dihapus hanya setelah DB berhasil diperbarui
+    if (req.file && oldPoster && oldPoster !== nextImageUrl) {
+      await removePosterIfUnused(oldPoster);
+    }
 
     return res.status(200).json({
       success: true,
@@ -187,6 +203,8 @@ const updateEvent = async (req, res) => {
       message: 'Terjadi kesalahan pada server.',
       error: error.message,
     });
+  } finally {
+    if (!saved && req.file) await removeUploadFile(req.file.path);
   }
 };
 
@@ -195,27 +213,62 @@ const updateEvent = async (req, res) => {
 // @access  Admin
 const deleteEvent = async (req, res) => {
   try {
-    const event = await Event.findByPk(req.params.id);
+    const posterPaths = [];
 
-    if (!event) {
-      return res.status(404).json({
-        success: false,
-        message: 'Event tidak ditemukan.',
+    await sequelize.transaction(async (t) => {
+      const event = await Event.findByPk(req.params.id, { transaction: t });
+
+      if (!event) {
+        const err = new Error('Event tidak ditemukan.');
+        err.status = 404;
+        throw err;
+      }
+
+      // Kunci kategori tiket event ini. Pembuatan pesanan juga mengunci baris kategori,
+      // jadi pesanan baru tidak bisa menyelinap masuk saat event sedang dihapus.
+      await KategoriTiket.findAll({
+        where: { event_id: event.id },
+        transaction: t,
+        lock: t.LOCK.UPDATE,
       });
-    }
 
-    const oldPoster = event.image_url || event.banner || event.poster;
-    if (oldPoster && fs.existsSync(oldPoster)) {
-      fs.unlinkSync(oldPoster);
-    }
+      // Pesanan dalam status apa pun (pending/lunas/ditolak/kadaluarsa) adalah
+      // catatan transaksi, jadi event yang pernah dipesan tidak boleh dihapus.
+      const jumlahPesanan = await Pesanan.count({ where: { event_id: event.id }, transaction: t });
+      if (jumlahPesanan > 0) {
+        const err = new Error(
+          `Event tidak bisa dihapus karena sudah memiliki ${jumlahPesanan} pesanan. Gunakan "tutup penjualan" untuk menghentikan penjualan.`
+        );
+        err.status = 409;
+        throw err;
+      }
 
-    await event.destroy();
+      // Kategori tiket tanpa pesanan dihapus eksplisit, tidak bergantung pada ON DELETE di DB
+      await KategoriTiket.destroy({ where: { event_id: event.id }, transaction: t });
+      await event.destroy({ transaction: t });
+
+      posterPaths.push(...[event.image_url, event.banner].filter(Boolean));
+    });
+
+    // File dihapus hanya setelah transaksi DB berhasil (commit)
+    for (const stored of [...new Set(posterPaths)]) {
+      await removePosterIfUnused(stored);
+    }
 
     return res.status(200).json({
       success: true,
       message: 'Event berhasil dihapus.',
     });
   } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message });
+    }
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(409).json({
+        success: false,
+        message: 'Event tidak bisa dihapus karena masih terhubung dengan data lain.',
+      });
+    }
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan pada server.',

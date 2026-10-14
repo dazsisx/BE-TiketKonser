@@ -1,14 +1,15 @@
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const { UPLOAD_ROOT, toPublicPath } = require('../utils/uploadPaths');
 
-// Tentukan folder tujuan berdasarkan base URL route
+// Tentukan folder tujuan (absolut, di bawah UPLOAD_ROOT) berdasarkan base URL route
 // (menggantikan folder Cloudinary tiket-konser/artis, /event, /bukti_bayar)
 const getUploadFolder = (req) => {
-  if (req.baseUrl.includes('artis')) return 'uploads/artis';
-  if (req.baseUrl.includes('event')) return 'uploads/event';
-  if (req.baseUrl.includes('pesanan')) return 'uploads/bukti_bayar';
-  return 'uploads/lainnya';
+  if (req.baseUrl.includes('artis')) return path.join(UPLOAD_ROOT, 'artis');
+  if (req.baseUrl.includes('event')) return path.join(UPLOAD_ROOT, 'event');
+  if (req.baseUrl.includes('pesanan')) return path.join(UPLOAD_ROOT, 'bukti_bayar');
+  return path.join(UPLOAD_ROOT, 'lainnya');
 };
 
 // Simpan langsung ke disk, per-folder sesuai route
@@ -55,14 +56,14 @@ const avatarUpload = multer({
 
 /**
  * Middleware setelah multer: timpa req.file.path (path absolut lokal)
- * jadi URL publik yang bisa diakses via express.static.
+ * jadi path publik yang bisa diakses via express.static.
  * Controller yang baca req.file.path tidak perlu diubah.
+ * (Nama `uploadToCloudinary` dipertahankan agar route tidak berubah.)
  */
 const uploadToCloudinary = (req, res, next) => {
   if (!req.file) return next();
 
-  const relativePath = req.file.path.replace(/\\/g, '/'); // fix Windows backslash
-  req.file.path = `/${relativePath}`; // contoh: /uploads/artis/172xxx-123.jpg
+  req.file.path = toPublicPath(req.file.path); // contoh: /uploads/artis/172xxx-123.jpg
 
   next();
 };

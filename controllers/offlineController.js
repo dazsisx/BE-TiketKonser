@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const { Op } = require('sequelize');
 const { sequelize, Pesanan, Event, KategoriTiket, User } = require('../models');
 const { withPembeli } = require('../utils/pesananFormat');
+const { assertEventOpenForSale } = require('../utils/eventSales');
 
 const MAX_TIKET = 5; // sama dengan batas di model Pesanan
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000; // Asia/Jakarta (UTC+7, tanpa DST)
@@ -78,9 +79,7 @@ const jualOffline = async (req, res) => {
     const pesananId = await sequelize.transaction(async (t) => {
       const event = await Event.findByPk(event_id, { transaction: t });
       if (!event) throw httpError(404, 'Event tidak ditemukan.');
-            if (event.status !== 'aktif') {
-        throw httpError(400, 'Penjualan tiket untuk event ini sedang tidak dibuka.');
-      }
+      assertEventOpenForSale(event, 'offline');
 
       const kategori = await KategoriTiket.findOne({
         where: { id: kategori_tiket_id, event_id },
