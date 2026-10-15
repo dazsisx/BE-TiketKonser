@@ -7,9 +7,14 @@ const {
   getRiwayatPesanan,
   getDetailPesanan,
   getAllPesanan,
+  cekPembelian,
 } = require('../controllers/pesananController');
 const { protect, adminOnly, pelangganOnly } = require('../middleware/authMiddleware');
 const { upload, uploadToCloudinary, handleUploadError } = require('../middleware/uploadMiddleware');
+const { cekPembelianLimiter, cekPembelianKodeLimiter } = require('../middleware/pembelianRateLimit');
+
+// POST /api/pesanan/cek               — cek pembelian tanpa login (email/nomor HP + kode booking)
+router.post('/cek', cekPembelianLimiter, cekPembelianKodeLimiter, cekPembelian);
 
 // GET /api/pesanan                    — semua pesanan (admin)
 router.get('/', protect, adminOnly, getAllPesanan);

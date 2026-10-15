@@ -14,9 +14,22 @@ const pesananRoutes = require('./routes/pesananRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const forgotPasswordRoutes = require('./routes/forgotPasswordRoutes');
 const offlineRoutes = require('./routes/offlineRoutes');
+const tiketRoutes = require('./routes/tiketRoutes');
+const { assertQrSecret } = require('./services/tiketService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Jumlah proxy tepercaya di depan aplikasi (angka). Kosongkan jika aplikasi diakses langsung.
+// Jangan diisi `true` dan jangan melebihi jumlah proxy yang sebenarnya, karena IP pengunjung
+// bisa dipalsukan lewat header X-Forwarded-For dan rate limiter jadi mudah dilewati.
+if (process.env.TRUST_PROXY) {
+  const hop = Number(process.env.TRUST_PROXY);
+  if (!Number.isInteger(hop) || hop < 1) {
+    throw new Error('TRUST_PROXY harus berupa bilangan bulat >= 1 (jumlah proxy tepercaya).');
+  }
+  app.set('trust proxy', hop);
+}
 
 // ===== MIDDLEWARE GLOBAL =====
 app.use(cors());
@@ -35,6 +48,7 @@ app.use('/api/kategori-tiket', kategoriTiketRoutes);
 app.use('/api/pesanan', pesananRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/offline', offlineRoutes);
+app.use('/api/tiket', tiketRoutes);
 
 // Route default
 app.get('/', (req, res) => {
@@ -72,6 +86,14 @@ app.use((err, req, res, next) => {
 
 // ===== KONEKSI DATABASE & JALANKAN SERVER =====
 const startServer = async () => {
+    // Gagal cepat jika QR_SECRET belum diatur, sebelum menyentuh database
+  try {
+    assertQrSecret();
+  } catch (error) {
+    console.error('❌ Konfigurasi tidak valid:', error.message);
+    process.exit(1);
+  }
+  
   try {
     await sequelize.authenticate();
     console.log('✅ Koneksi database berhasil.');

@@ -65,10 +65,10 @@ const Pesanan = sequelize.define('Pesanan', {
     type: DataTypes.TEXT,
     allowNull: true,
   },
-  // ===== Penjualan offline =====
+  // Kolom berikut sudah ada di tabel pesanan (Supabase); didefinisikan di sini
+  // supaya Sequelize ikut menyimpan dan membaca nilainya.
   order_type: {
     type: DataTypes.STRING(20),
-    allowNull: false,
     defaultValue: 'online',
     validate: {
       isIn: { args: [['online', 'offline']], msg: 'order_type tidak valid' },
@@ -85,15 +85,6 @@ const Pesanan = sequelize.define('Pesanan', {
   email_pembeli: {
     type: DataTypes.STRING(150),
     allowNull: true,
-  },
-  // Petugas (admin / admin_offline) yang mencatat transaksi offline
-  dibuat_oleh: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: 'users',
-      key: 'id',
-    },
   },
 }, {
   tableName: 'pesanan',

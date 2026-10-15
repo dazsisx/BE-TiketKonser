@@ -1,9 +1,20 @@
 const { sequelize, Pesanan, Event, KategoriTiket, User } = require('../models');
-const QRCode = require('qrcode');
 const crypto = require('crypto');
+const fs = require('fs');
 const { withPembeli } = require('../utils/pesananFormat');
-const { assertEventOpenForSale } = require('../utils/eventSales');
-const { removeUploadFile } = require('../utils/uploadPaths');
+const { konfirmasiLunas, tutupTanpaBayar } = require('../services/pembayaranService');
+const { daftarTiket } = require('../services/tiketService');
+
+const {
+  KODE_REGEX,
+  normalisasiKode,
+  normalisasiEmail,
+  normalisasiTelepon,
+  emailValid,
+  teleponValid,
+  kontakCocok,
+  formatHasilPembelian,
+} = require('../utils/cekPembelian');
 
 // Generate kode tiket unik
 const generateKodeTiket = () => {
@@ -35,7 +46,9 @@ const buatPesanan = async (req, res) => {
     const pesanan = await sequelize.transaction(async (t) => {
       const event = await Event.findByPk(event_id, { transaction: t });
       if (!event) throw httpError(404, 'Event tidak ditemukan.');
-      assertEventOpenForSale(event, 'online');
+      if (event.status !== 'aktif') {
+        throw httpError(400, 'Penjualan tiket untuk event ini sedang tidak dibuka.');
+      }
 
       const kategori = await KategoriTiket.findOne({
         where: { id: kategori_tiket_id, event_id },
@@ -95,7 +108,6 @@ const buatPesanan = async (req, res) => {
 // @route   POST /api/pesanan/:id/bayar
 // @access  Pelanggan
 const uploadBuktiBayar = async (req, res) => {
-  let saved = false;
   try {
     const pesanan = await Pesanan.findOne({
       where: {
@@ -129,7 +141,6 @@ const uploadBuktiBayar = async (req, res) => {
     await pesanan.update({
       bukti_bayar: req.file.path,
     });
-    saved = true;
 
     return res.status(200).json({
       success: true,
@@ -143,18 +154,16 @@ const uploadBuktiBayar = async (req, res) => {
       message: 'Terjadi kesalahan pada server.',
       error: error.message,
     });
-  } finally {
-    // Request gagal/ditolak: file yang baru diupload tidak boleh jadi yatim
-    if (!saved && req.file) await removeUploadFile(req.file.path);
   }
 };
 
 // @desc    Verifikasi pembayaran (admin)
 // @route   PATCH /api/pesanan/:id/verifikasi
 // @access  Admin
+// Perubahan status + penerbitan tiket dilakukan atomik di pembayaranService.
 const verifikasiPembayaran = async (req, res) => {
   try {
-    const { aksi } = req.body;
+    const { aksi } = req.body || {};
 
     if (!aksi || !['setujui', 'tolak'].includes(aksi)) {
       return res.status(400).json({
@@ -162,79 +171,50 @@ const verifikasiPembayaran = async (req, res) => {
         message: 'aksi wajib diisi: "setujui" atau "tolak".',
       });
     }
+    if (!/^\d+$/.test(String(req.params.id))) {
+      return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+    }
 
-    // Satu transaksi + row lock pada pesanan: verifikasi ganda (klik dua kali / dua admin)
-    // tidak boleh mengembalikan kuota dua kali atau memproses pesanan dua kali.
-    const { pesanan, message } = await sequelize.transaction(async (t) => {
-      const locked = await Pesanan.findByPk(req.params.id, {
-        transaction: t,
-        lock: t.LOCK.UPDATE,
+    const hasil =
+      aksi === 'setujui'
+        ? await konfirmasiLunas(req.params.id)
+        : await tutupTanpaBayar(req.params.id, 'ditolak');
+
+    // Panggilan berulang pada pesanan yang sudah lunas: tidak membuat tiket baru
+    if (hasil.sudahLunas) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pesanan ini sudah diverifikasi sebelumnya.',
       });
+    }
 
-      if (!locked) throw httpError(404, 'Pesanan tidak ditemukan.');
-
-      if (locked.status_bayar !== 'pending') {
-        throw httpError(400, 'Pesanan ini sudah diverifikasi sebelumnya.');
-      }
-
-      // Relasi dimuat setelah baris terkunci (FOR UPDATE tidak bisa dipakai dengan LEFT JOIN)
-      await locked.reload({
-        transaction: t,
-        include: [
-          { model: Event, as: 'event', attributes: ['nama_event', 'tanggal', 'lokasi'] },
-          { model: KategoriTiket, as: 'kategori_tiket', attributes: ['nama_kelas'] },
-          { model: User, as: 'user', attributes: ['nama', 'email'] },
-        ],
-      });
-
-      if (aksi === 'tolak') {
-        // Kembalikan kuota tiket
-        const kategori = await KategoriTiket.findByPk(locked.kategori_tiket_id, {
-          transaction: t,
-          lock: t.LOCK.UPDATE,
-        });
-
-        if (kategori) {
-          await kategori.update(
-            { terjual: Math.max(0, kategori.terjual - locked.jumlah) },
-            { transaction: t }
-          );
-        }
-
-        await locked.update({ status_bayar: 'ditolak' }, { transaction: t });
-
-        return { pesanan: locked, message: 'Pembayaran ditolak.' };
-      }
-
-      // Setujui: generate QR Code
-      const qrData = JSON.stringify({
-        kode_tiket: locked.kode_tiket,
-        event: locked.event?.nama_event,
-        kategori: locked.kategori_tiket?.nama_kelas,
-        jumlah: locked.jumlah,
-        nama: locked.user?.nama,
-      });
-
-      const qrCode = await QRCode.toDataURL(qrData);
-
-      await locked.update({ status_bayar: 'lunas', qr_code: qrCode }, { transaction: t });
-
-      return { pesanan: locked, message: 'Pembayaran berhasil diverifikasi. Tiket sudah aktif.' };
+    const pesanan = await Pesanan.findByPk(req.params.id, {
+      include: [
+        { model: Event, as: 'event', attributes: ['nama_event', 'tanggal', 'lokasi'] },
+        { model: KategoriTiket, as: 'kategori_tiket', attributes: ['nama_kelas'] },
+        { model: User, as: 'user', attributes: ['nama', 'email'] },
+      ],
     });
+
+    const data = pesanan.toJSON();
+    data.tiket = aksi === 'setujui' ? await daftarTiket(pesanan.id, { sertakanQr: false }) : [];
 
     return res.status(200).json({
       success: true,
-      message,
-      data: pesanan,
+      message:
+        aksi === 'setujui'
+          ? 'Pembayaran berhasil diverifikasi. Tiket sudah aktif.'
+          : 'Pembayaran ditolak.',
+      data,
     });
   } catch (error) {
     if (error.status) {
       return res.status(error.status).json({ success: false, message: error.message });
     }
+    console.error('verifikasiPembayaran error:', error.message);
     return res.status(500).json({
       success: false,
       message: 'Terjadi kesalahan pada server.',
-      error: error.message,
     });
   }
 };
@@ -252,14 +232,12 @@ const getRiwayatPesanan = async (req, res) => {
         {
           model: Event,
           as: 'event',
-          // Event tidak punya kolom `poster`; poster disimpan di image_url/banner
           attributes: [
             'id',
             'nama_event',
             'tanggal',
             'lokasi',
             'image_url',
-            'banner',
           ],
           include: [
             {
@@ -278,20 +256,10 @@ const getRiwayatPesanan = async (req, res) => {
       order: [['created_at', 'DESC']],
     });
 
-    // Bentuk respons event sama dengan endpoint /api/event: poster = image_url = banner
-    const data = pesanan.map((p) => {
-      const json = p.toJSON();
-      if (json.event) {
-        const poster = json.event.image_url ?? json.event.banner ?? null;
-        json.event = { ...json.event, poster, image_url: poster, banner: poster };
-      }
-      return json;
-    });
-
     return res.status(200).json({
       success: true,
       total: pesanan.length,
-      data,
+      data: pesanan,
     });
   } catch (error) {
     return res.status(500).json({
@@ -331,10 +299,14 @@ const getDetailPesanan = async (req, res) => {
       });
     }
 
+       const data = pesanan.toJSON();
+    data.tiket = pesanan.status_bayar === 'lunas' ? await daftarTiket(pesanan.id) : [];
+
     return res.status(200).json({
       success: true,
-      data: pesanan,
+      data,
     });
+
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -392,6 +364,83 @@ const getAllPesanan = async (req, res) => {
   }
 };
 
+// @desc    Cek pembelian tanpa login (email atau nomor HP + kode booking)
+// @route   POST /api/pesanan/cek
+// @access  Publik (dibatasi rate limiter)
+const cekPembelian = async (req, res) => {
+  try {
+    const body = req.body || {};
+    const kode = normalisasiKode(body.kode_tiket);
+    const emailMentah = typeof body.email === 'string' ? body.email.trim() : '';
+    const teleponMentah = body.no_telepon === undefined || body.no_telepon === null
+      ? ''
+      : String(body.no_telepon).trim();
+
+    if (!KODE_REGEX.test(kode)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Format kode booking tidak valid. Contoh: TKT-1A2B3C4D.',
+      });
+    }
+    if (!emailMentah && !teleponMentah) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email atau nomor HP wajib diisi.',
+      });
+    }
+    if (emailMentah && teleponMentah) {
+      return res.status(400).json({
+        success: false,
+        message: 'Gunakan salah satu: email atau nomor HP.',
+      });
+    }
+
+    const email = normalisasiEmail(emailMentah);
+    const telepon = normalisasiTelepon(teleponMentah);
+
+    if (emailMentah && !emailValid(email)) {
+      return res.status(400).json({ success: false, message: 'Format email tidak valid.' });
+    }
+    if (teleponMentah && !teleponValid(telepon)) {
+      return res.status(400).json({ success: false, message: 'Format nomor HP tidak valid.' });
+    }
+
+    const pesanan = await Pesanan.findOne({
+      where: { kode_tiket: kode },
+      include: [
+        { model: User, as: 'user', attributes: ['id', 'nama', 'email', 'no_telepon'] },
+        { model: Event, as: 'event', attributes: ['id', 'nama_event', 'tanggal', 'lokasi', 'status'] },
+        { model: KategoriTiket, as: 'kategori_tiket', attributes: ['id', 'nama_kelas', 'harga'] },
+      ],
+    });
+
+    // Satu pesan untuk semua kegagalan (kode salah / kontak tidak cocok),
+    // supaya orang luar tidak bisa menebak email atau nomor yang terdaftar.
+    if (!pesanan || !kontakCocok(pesanan, { email, telepon })) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pesanan tidak ditemukan. Periksa kembali email/nomor HP dan kode booking.',
+      });
+    }
+
+        // Tiket + QR diambil dari tabel `tiket` dan hanya untuk pesanan lunas
+    const tiket =
+      pesanan.status_bayar === 'lunas' ? await daftarTiket(pesanan.id, { sertakanKode: false }) : [];
+
+    return res.status(200).json({
+      success: true,
+      data: formatHasilPembelian(pesanan, tiket),
+    });
+
+  } catch (error) {
+    console.error('cekPembelian error:', error.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan pada server.',
+    });
+  }
+};
+
 module.exports = {
   buatPesanan,
   uploadBuktiBayar,
@@ -399,4 +448,5 @@ module.exports = {
   getRiwayatPesanan,
   getDetailPesanan,
   getAllPesanan,
+  cekPembelian,
 };

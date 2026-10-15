@@ -1,9 +1,9 @@
-const QRCode = require('qrcode');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
 const { sequelize, Pesanan, Event, KategoriTiket, User } = require('../models');
 const { withPembeli } = require('../utils/pesananFormat');
 const { assertEventOpenForSale } = require('../utils/eventSales');
+const { terbitkanTiket, daftarTiket } = require('../services/tiketService');
 
 const MAX_TIKET = 5; // sama dengan batas di model Pesanan
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000; // Asia/Jakarta (UTC+7, tanpa DST)
@@ -96,16 +96,6 @@ const jualOffline = async (req, res) => {
       const kode_tiket = generateKodeTiket();
       const total_harga = Number(kategori.harga) * jumlah;
 
-      const qr_code = await QRCode.toDataURL(
-        JSON.stringify({
-          kode_tiket,
-          event: event.nama_event,
-          kategori: kategori.nama_kelas,
-          jumlah,
-          nama,
-        })
-      );
-
       const pesanan = await Pesanan.create(
         {
           user_id: null,
@@ -115,7 +105,6 @@ const jualOffline = async (req, res) => {
           total_harga,
           status_bayar: 'lunas',
           kode_tiket,
-          qr_code,
           order_type: 'offline',
           nama_pembeli: nama,
           no_telepon_pembeli: no_telepon ? String(no_telepon).trim() : null,
@@ -125,6 +114,9 @@ const jualOffline = async (req, res) => {
         { transaction: t }
       );
 
+      // Satu QR unik per tiket, di transaksi yang sama dengan pembuatan pesanan
+      await terbitkanTiket(pesanan, t);
+
       await kategori.update({ terjual: kategori.terjual + jumlah }, { transaction: t });
 
       return pesanan.id;
@@ -132,10 +124,12 @@ const jualOffline = async (req, res) => {
 
     const pesanan = await Pesanan.findByPk(pesananId, { include: includeRelasi });
 
+    const tiket = await daftarTiket(pesananId);
+
     return res.status(201).json({
       success: true,
       message: 'Transaksi offline berhasil.',
-      data: withPembeli(pesanan),
+      data: { ...withPembeli(pesanan), tiket },
     });
   } catch (error) {
     return handleError(res, error);
@@ -182,7 +176,9 @@ const getDetailOffline = async (req, res) => {
 
     if (!pesanan) throw httpError(404, 'Transaksi tidak ditemukan.');
 
-    return res.status(200).json({ success: true, data: withPembeli(pesanan) });
+    const tiket = pesanan.status_bayar === 'lunas' ? await daftarTiket(pesanan.id) : [];
+
+    return res.status(200).json({ success: true, data: { ...withPembeli(pesanan), tiket } });
   } catch (error) {
     return handleError(res, error);
   }
