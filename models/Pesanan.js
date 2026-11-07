@@ -52,6 +52,19 @@ const Pesanan = sequelize.define('Pesanan', {
     type: DataTypes.STRING(255),
     allowNull: true,
   },
+  gateway_order_id: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    unique: true,
+  },
+  payment_url: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  payment_status: {
+    type: DataTypes.STRING(50),
+    allowNull: true,
+  },
   kode_tiket: {
     type: DataTypes.STRING(50),
     allowNull: true,

@@ -45,6 +45,9 @@ RESEND_FROM_EMAIL=DRStar <no-reply@domain-terverifikasi.com>
 SUPABASE_URL=https://project-ref.supabase.co
 SUPABASE_SECRET_KEY=sb_secret_key_backend
 SUPABASE_SERVICE_ROLE_KEY=service_role_key_backend
+MIDTRANS_SERVER_KEY=SB-Mid-server-xxxxxxxxxxxxxxxx
+MIDTRANS_IS_PRODUCTION=false
+FRONTEND_URL=http://localhost:3000
 ```
 
 `RESEND_API_KEY` dan `RESEND_FROM_EMAIL` diperlukan untuk fitur lupa password.
@@ -58,6 +61,27 @@ Nilai `DB_HOST` pooler berbentuk `aws-0-<region>.pooler.supabase.com`, sedangkan
 `DB_USER` biasanya berbentuk `postgres.<project-ref>`. Salin nilai asli dari
 Supabase, bukan nilai contoh di atas. Jika memakai koneksi direct, gunakan host
 `db.<project-ref>.supabase.co`, port `5432`, dan user `postgres`.
+
+### Pembayaran online (Midtrans Snap)
+
+1. Buat akun Midtrans dan ambil **Server Key** dari menu **Settings > Access Keys**.
+   Gunakan Server Key sandbox selama pengembangan; jangan pernah menaruh key di frontend
+   atau mengirimkannya ke repository.
+2. Isi `MIDTRANS_SERVER_KEY` dan `FRONTEND_URL` di `.env` backend.
+   Biarkan `MIDTRANS_IS_PRODUCTION=false` untuk sandbox. Untuk live, isi `true`
+   hanya setelah akun/provider siap menerima transaksi produksi.
+3. Atur URL notifikasi pada dashboard Midtrans ke
+   `https://<domain-backend>/api/pesanan/webhook/midtrans`. Endpoint ini harus bisa
+   diakses melalui HTTPS dari Midtrans; `localhost` hanya cukup untuk pengembangan
+   manual, bukan menerima notifikasi sandbox dari internet.
+4. Untuk database yang sudah ada, jalankan
+   [`migrations/20261025_midtrans_snap.sql`](./migrations/20261025_midtrans_snap.sql)
+   satu kali melalui Supabase SQL Editor. Instalasi database baru mendapatkan kolom
+   ini dari Sequelize.
+
+Checkout membuat transaksi Snap di backend, lalu pelanggan membayar di halaman
+Midtrans. Status pembayaran dan penerbitan tiket hanya diperbarui oleh webhook yang
+signature-nya diverifikasi dengan Server Key. Notifikasi yang sama aman dikirim ulang.
 
 ### 4. Jalankan server
 ```bash
@@ -197,6 +221,7 @@ pesanan        → id, user_id (FK), event_id (FK), kategori_tiket_id (FK), juml
 | GET    | /api/pesanan/riwayat            | Pelanggan | Riwayat pesanan sendiri     |
 | GET    | /api/pesanan/:id                | Pelanggan | Detail pesanan              |
 | POST   | /api/pesanan                    | Pelanggan | Buat pesanan baru           |
+| POST   | /api/pesanan/webhook/midtrans   | Midtrans  | Notifikasi pembayaran Snap  |
 | POST   | /api/pesanan/:id/bayar          | Pelanggan | Upload bukti pembayaran     |
 | PATCH  | /api/pesanan/:id/verifikasi     | Admin     | Verifikasi pembayaran       |
 

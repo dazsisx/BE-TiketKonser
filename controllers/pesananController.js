@@ -4,6 +4,7 @@ const fs = require('fs');
 const { withPembeli } = require('../utils/pesananFormat');
 const { konfirmasiLunas, tutupTanpaBayar } = require('../services/pembayaranService');
 const { daftarTiket } = require('../services/tiketService');
+const { createSnapTransaction, isConfigured, verifyNotification } = require('../services/midtransService');
 
 const {
   KODE_REGEX,
@@ -32,6 +33,13 @@ const httpError = (status, message) => {
 
 const buatPesanan = async (req, res) => {
   try {
+    if (!isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        message: 'Payment gateway belum dikonfigurasi. Silakan hubungi admin.',
+      });
+    }
+
     const { event_id, kategori_tiket_id } = req.body;
     const jumlah = Number(req.body.jumlah);
 
@@ -78,13 +86,36 @@ const buatPesanan = async (req, res) => {
 
       await kategori.update({ terjual: kategori.terjual + jumlah }, { transaction: t });
 
-      return dibuat;
+      dibuat.gateway_order_id = `DRSTAR-${dibuat.id}-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
+      await dibuat.save({ transaction: t });
+
+      return { pesanan: dibuat, kategori };
     });
+
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['id', 'nama', 'email', 'no_telepon'],
+    });
+    if (!user) throw httpError(404, 'Data pembeli tidak ditemukan.');
+
+    try {
+      const payment = await createSnapTransaction({
+        pesanan: pesanan.pesanan,
+        kategori: pesanan.kategori,
+        user,
+      });
+      await pesanan.pesanan.update({
+        payment_url: payment.paymentUrl,
+        payment_status: 'pending',
+      });
+    } catch (error) {
+      await tutupTanpaBayar(pesanan.pesanan.id, 'ditolak');
+      throw error;
+    }
 
     return res.status(201).json({
       success: true,
-      message: 'Pesanan berhasil dibuat. Silakan lakukan pembayaran.',
-      data: pesanan,
+      message: 'Pesanan berhasil dibuat. Lanjutkan pembayaran melalui Midtrans.',
+      data: pesanan.pesanan,
     });
   } catch (error) {
     if (error.status) {
@@ -131,6 +162,13 @@ const uploadBuktiBayar = async (req, res) => {
       });
     }
 
+    if (pesanan.gateway_order_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Pesanan ini menggunakan pembayaran online. Selesaikan pembayaran melalui Midtrans.',
+      });
+    }
+
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -153,6 +191,59 @@ const uploadBuktiBayar = async (req, res) => {
       success: false,
       message: 'Terjadi kesalahan pada server.',
       error: error.message,
+    });
+  }
+};
+
+// @desc    Notifikasi pembayaran dari Midtrans
+// @route   POST /api/pesanan/webhook/midtrans
+// @access  Public (signature diverifikasi dengan Server Key)
+const midtransNotification = async (req, res) => {
+  try {
+    const notification = req.body;
+    if (!verifyNotification(notification)) {
+      return res.status(401).json({ success: false, message: 'Signature notifikasi tidak valid.' });
+    }
+
+    const pesanan = await Pesanan.findOne({
+      where: { gateway_order_id: notification.order_id },
+    });
+    if (!pesanan) {
+      console.warn('Midtrans notification references an unknown order:', notification.order_id);
+      return res.status(404).json({ success: false, message: 'Pesanan tidak ditemukan.' });
+    }
+
+    if (Number(notification.gross_amount) !== Number(pesanan.total_harga)) {
+      return res.status(400).json({ success: false, message: 'Nominal pembayaran tidak cocok.' });
+    }
+
+    const status = notification.transaction_status;
+    const fraudAccepted = notification.fraud_status === 'accept';
+
+    if (
+      (status === 'settlement' || (status === 'capture' && fraudAccepted)) &&
+      pesanan.status_bayar === 'pending'
+    ) {
+      await konfirmasiLunas(pesanan.id);
+    } else if (status === 'expire' && pesanan.status_bayar === 'pending') {
+      await tutupTanpaBayar(pesanan.id, 'kadaluarsa');
+    } else if (
+      (status === 'cancel' || status === 'deny') &&
+      pesanan.status_bayar === 'pending'
+    ) {
+      await tutupTanpaBayar(pesanan.id, 'ditolak');
+    }
+
+    if (pesanan.status_bayar !== 'lunas' || status === 'settlement' || status === 'capture') {
+      await pesanan.update({ payment_status: status });
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('midtransNotification error:', error.message);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.status ? error.message : 'Notifikasi pembayaran gagal diproses.',
     });
   }
 };
@@ -449,4 +540,5 @@ module.exports = {
   getDetailPesanan,
   getAllPesanan,
   cekPembelian,
+  midtransNotification,
 };
