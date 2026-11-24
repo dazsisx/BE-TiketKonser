@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const { LABELS } = require('../utils/kategoriEvent');
 
 const Event = sequelize.define('Event', {
   id: {
@@ -57,6 +58,15 @@ const Event = sequelize.define('Event', {
     allowNull: true,
     defaultValue: null,
   },
+  // Jenis event untuk halaman kategori. NULL = belum dikategorikan.
+  kategori_event: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+    defaultValue: null,
+    validate: {
+      isIn: { args: [LABELS], msg: `Kategori event harus salah satu dari: ${LABELS.join(', ')}` },
+    },
+  },
   status: {
     type: DataTypes.ENUM('draft', 'aktif', 'ditutup', 'selesai'),
     defaultValue: 'aktif',
@@ -66,4 +76,4 @@ const Event = sequelize.define('Event', {
   timestamps: false,
 });
 
-module.exports = Event;
+module.exports = Event;
