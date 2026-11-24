@@ -50,6 +50,13 @@ const Event = sequelize.define('Event', {
       key: 'id',
     },
   },
+  // Kunci denah venue di halaman pembelian (arena | stadium | theater | club).
+  // NULL = FE menebak dari nama lokasi. Daftar nilai valid dicek di eventController.
+  venue_layout: {
+    type: DataTypes.STRING(30),
+    allowNull: true,
+    defaultValue: null,
+  },
   status: {
     type: DataTypes.ENUM('draft', 'aktif', 'ditutup', 'selesai'),
     defaultValue: 'aktif',
