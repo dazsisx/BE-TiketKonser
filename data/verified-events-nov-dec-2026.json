@@ -1,0 +1,544 @@
+[
+  {
+    "artis": {
+      "nama": "Rony Parulian",
+      "genre": "Pop",
+      "bio": "Penyanyi pop Indonesia."
+    },
+    "event": {
+      "nama_event": "Rony Parulian Showcase: DUNIA DAN SEISINYA",
+      "deskripsi": "Showcase album Dunia dan Seisinya oleh Rony Parulian di Bengkel Space, Jakarta Selatan.",
+      "tanggal": "2026-11-24T18:00:00+07:00",
+      "lokasi": "Bengkel Space, Jakarta Selatan",
+      "kategori_event": "Musik Live",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/10/01M5Y8A8S7CE5V439KHJ39MXQ4/800w.webp",
+      "source_url": "https://infokonser.id/konser/rony-parulian-showcase-dunia-dan-seisinya"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "General - Festival A VIP",
+        "harga": 629000
+      },
+      {
+        "nama_kelas": "General - Festival A",
+        "harga": 349000
+      },
+      {
+        "nama_kelas": "General - Festival B",
+        "harga": 289000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "Efek Rumah Kaca",
+      "genre": "Indie Rock",
+      "bio": "Grup musik independen Indonesia."
+    },
+    "event": {
+      "nama_event": "SUDDEN GIG",
+      "deskripsi": "Konser bersama Efek Rumah Kaca, The Adams, dan Seringai di Bengkel Space, Jakarta Selatan.",
+      "tanggal": "2026-12-01T18:10:00+07:00",
+      "lokasi": "Bengkel Space, Jakarta Selatan",
+      "kategori_event": "Konser",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/10/01M5CYFVT553GJ42HKGZYD7W8M/800w.webp",
+      "source_url": "https://infokonser.id/konser/sudden-gig"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "Presale",
+        "harga": 180000
+      },
+      {
+        "nama_kelas": "Reguler",
+        "harga": 300000
+      },
+      {
+        "nama_kelas": "Checksound Experience + Merchandise",
+        "harga": 1000000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "Princess Syahrini",
+      "genre": "Pop",
+      "bio": "Penyanyi pop Indonesia."
+    },
+    "event": {
+      "nama_event": "Syahrini: Aku Kembali Live in Concert",
+      "deskripsi": "Konser tunggal Princess Syahrini di Tennis Indoor Senayan, Jakarta Pusat.",
+      "tanggal": "2026-12-01T00:00:00+07:00",
+      "lokasi": "Tennis Indoor Senayan, Jakarta Pusat",
+      "kategori_event": "Konser",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/11/01M6C2NAD6192BYKCM1QSBR539/800w.webp",
+      "source_url": "https://infokonser.id/konser/syahrini-aku-kembali-live-in-concert"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "Gubrak Gubrak",
+        "harga": 500000
+      },
+      {
+        "nama_kelas": "Seperti Itu",
+        "harga": 750000
+      },
+      {
+        "nama_kelas": "Membahana",
+        "harga": 1500000
+      },
+      {
+        "nama_kelas": "Cetar",
+        "harga": 2500000
+      },
+      {
+        "nama_kelas": "Manja",
+        "harga": 3500000
+      },
+      {
+        "nama_kelas": "Sesuatu",
+        "harga": 5000000
+      },
+      {
+        "nama_kelas": "Terpampang Nyata",
+        "harga": 15000000
+      },
+      {
+        "nama_kelas": "Kau Yang Utama (RSVP)",
+        "harga": 35000000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "BOYNEXTDOOR",
+      "genre": "K-Pop",
+      "bio": "Grup musik K-pop."
+    },
+    "event": {
+      "nama_event": "BOYNEXTDOOR TOUR 'KNOCK ON Vol.2' IN JAKARTA",
+      "deskripsi": "Konser BOYNEXTDOOR TOUR KNOCK ON Vol.2 di ICE BSD City Hall 5-6, Tangerang.",
+      "tanggal": "2026-12-05T19:00:00+07:00",
+      "lokasi": "ICE BSD City, Halls 5-6, Tangerang",
+      "kategori_event": "Konser",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/11/01M6C2M8A0NXT188EYJV096FWA/800w.webp",
+      "source_url": "https://infokonser.id/konser/boynextdoor-tour-knock-on-vol2-in-jakarta"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "ONEDOOR VIP (Standing)",
+        "harga": 3400000
+      },
+      {
+        "nama_kelas": "Orange A & B (Standing)",
+        "harga": 2750000
+      },
+      {
+        "nama_kelas": "Pink A & B (Standing)",
+        "harga": 1850000
+      },
+      {
+        "nama_kelas": "CAT 1 (Numbered Seating)",
+        "harga": 2750000
+      },
+      {
+        "nama_kelas": "CAT 2 (Numbered Seating)",
+        "harga": 2350000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "Dimash Qudaibergen",
+      "genre": "Pop / Classical Crossover",
+      "bio": "Penyanyi asal Kazakhstan."
+    },
+    "event": {
+      "nama_event": "Dimash Qudaibergen – DIMENSIONS World Tour Live in Indonesia",
+      "deskripsi": "Konser perdana Dimash Qudaibergen di Indonesia sebagai bagian dari DIMENSIONS World Tour.",
+      "tanggal": "2026-12-12T00:00:00+07:00",
+      "lokasi": "Sentul International Convention Center (SICC), Bogor",
+      "kategori_event": "Konser",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/10/01M61VD7BFX2TDVBA8Y2SXGCQP/800w.webp",
+      "source_url": "https://www.loket.com/blog/event-konser-dimash"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "VVIP",
+        "harga": 8700000
+      },
+      {
+        "nama_kelas": "VIP",
+        "harga": 4800000
+      },
+      {
+        "nama_kelas": "CAT 1",
+        "harga": 2800000
+      },
+      {
+        "nama_kelas": "CAT 2",
+        "harga": 1800000
+      },
+      {
+        "nama_kelas": "CAT 3",
+        "harga": 1250000
+      },
+      {
+        "nama_kelas": "CAT 4 (Restricted View)",
+        "harga": 850000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "Djakarta Warehouse Project",
+      "genre": "Electronic",
+      "bio": "Festival musik elektronik tahunan di Jakarta."
+    },
+    "event": {
+      "nama_event": "DWP 2026",
+      "deskripsi": "Djakarta Warehouse Project 2026 di JIExpo Kemayoran, Jakarta, dengan lineup DJ internasional dan regional.",
+      "tanggal": "2026-12-11T00:00:00+07:00",
+      "lokasi": "JIExpo Kemayoran, Jakarta Pusat",
+      "kategori_event": "Festival",
+      "image_url": "https://assets.loket.com/2026/10/DWP-2026.jpeg",
+      "source_url": "https://www.loket.com/blog/event-dwp2026"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "3-Day Pass GA - Early Entry 3",
+        "harga": 2100000
+      },
+      {
+        "nama_kelas": "3-Day Pass - GA Presale 3",
+        "harga": 2300000
+      },
+      {
+        "nama_kelas": "3-Day Pass VIP - Presale 2",
+        "harga": 4200000
+      },
+      {
+        "nama_kelas": "2-Day Pass GA - Early Entry",
+        "harga": 1400000
+      },
+      {
+        "nama_kelas": "2-Day Pass GA - Presale",
+        "harga": 1600000
+      },
+      {
+        "nama_kelas": "2-Day Pass VIP",
+        "harga": 2400000
+      },
+      {
+        "nama_kelas": "Daily Pass GA Early Entry",
+        "harga": 850000
+      },
+      {
+        "nama_kelas": "Daily Pass GA Presale",
+        "harga": 950000
+      },
+      {
+        "nama_kelas": "Daily Pass VIP Presale",
+        "harga": 1650000
+      },
+      {
+        "nama_kelas": "GA - Group Package (3 Tiket)",
+        "harga": 5250000
+      },
+      {
+        "nama_kelas": "GA - Group Package Plus (8 Tiket)",
+        "harga": 12800000
+      },
+      {
+        "nama_kelas": "VIP - Group Package (3 Tickets)",
+        "harga": 10950000
+      },
+      {
+        "nama_kelas": "VIP - Group Package Plus (8 Tickets)",
+        "harga": 26400000
+      },
+      {
+        "nama_kelas": "Daily GA - Group Package (3 Tiket)",
+        "harga": 2625000
+      },
+      {
+        "nama_kelas": "Daily GA - Group Package Plus (8 Tiket)",
+        "harga": 6400000
+      },
+      {
+        "nama_kelas": "Daily VIP - Group Package (3 Tiket)",
+        "harga": 4575000
+      },
+      {
+        "nama_kelas": "Daily VIP - Group Package Plus (8 Tiket)",
+        "harga": 11200000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "The Jesus and Mary Chain",
+      "genre": "Alternative Rock",
+      "bio": "Band rock alternatif asal Skotlandia."
+    },
+    "event": {
+      "nama_event": "The Jesus and Mary Chain Live in Indonesia – Bali",
+      "deskripsi": "Penampilan The Jesus and Mary Chain di Black Sand Brewery, Denpasar, Bali.",
+      "tanggal": "2026-11-26T00:00:00+08:00",
+      "lokasi": "Black Sand Brewery, Denpasar, Bali",
+      "kategori_event": "Konser",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/11/01M6C2MPYESRSP2E55706E0GE9/800w.webp",
+      "source_url": "https://infokonser.id/konser/the-jesus-and-mary-chain-live-in-indonesia-november-2026"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "Bali Ticket",
+        "harga": 600000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "Trico",
+      "genre": "Hip Hop",
+      "bio": "Musisi hip hop Indonesia."
+    },
+    "event": {
+      "nama_event": "Trico – Giacometti Jakarta Showcase",
+      "deskripsi": "Showcase album Giacometti oleh Trico bersama Muria, $AFA, NARA, dan Auzai di Krapela, Jakarta Selatan.",
+      "tanggal": "2026-11-26T19:00:00+07:00",
+      "lokasi": "Krapela, Jakarta Selatan",
+      "kategori_event": "Musik Live",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/10/01M6175WXCH8XBQ8HKCRP1MSD5/800w.webp",
+      "source_url": "https://infokonser.id/konser/trico-giacometti-jakarta-showcase"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "Tiket",
+        "harga": 150000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "Simple Plan",
+      "genre": "Pop Punk / Rock",
+      "bio": "Band pop punk asal Kanada."
+    },
+    "event": {
+      "nama_event": "Simple Plan – The Bigger Than You Think! Tour Jakarta",
+      "deskripsi": "Konser Simple Plan bersama LØLØ dalam rangka The Bigger Than You Think! Tour di Tennis Indoor Senayan, Jakarta.",
+      "tanggal": "2026-11-27T00:00:00+07:00",
+      "lokasi": "Tennis Indoor Senayan, Jakarta Pusat",
+      "kategori_event": "Konser",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/11/01M6C2N9CVGN3S8TMT5W38CXJA/800w.webp",
+      "source_url": "https://infokonser.id/konser/simple-plan-live-in-malaysia-singapore-philippines-indonesia-november-2026"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "CAT 1 (Free Standing)",
+        "harga": 1650000
+      },
+      {
+        "nama_kelas": "CAT 2 (Free Standing)",
+        "harga": 950000
+      },
+      {
+        "nama_kelas": "CAT 3 (Numbered Seating)",
+        "harga": 1950000
+      },
+      {
+        "nama_kelas": "CAT 4A/4B (Numbered Seating)",
+        "harga": 1450000
+      },
+      {
+        "nama_kelas": "Festival A (Free Standing)",
+        "harga": 1350000
+      },
+      {
+        "nama_kelas": "Festival B (Free Standing)",
+        "harga": 850000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "THE KICK",
+      "genre": "Indie",
+      "bio": "Grup musik independen Indonesia."
+    },
+    "event": {
+      "nama_event": "Berbagigs Vol. 30",
+      "deskripsi": "Gig musik independen bersama THE KICK, WLBY, BSAR, dan hottdog di Berbagi Ruang, Denpasar.",
+      "tanggal": "2026-11-24T18:00:00+08:00",
+      "lokasi": "Berbagi Ruang, Denpasar, Bali",
+      "kategori_event": "Musik Live",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/11/01M7RS72P80YQF24E9A03Y4JHE/800w.webp",
+      "source_url": "https://infokonser.id/konser/berbagigs-vol-30"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "Pre-Sale",
+        "harga": 65000
+      },
+      {
+        "nama_kelas": "OTS",
+        "harga": 90000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "Adjie Santosoputro",
+      "genre": "Pop / Acoustic",
+      "bio": "Pengisi sesi dan fasilitator acara Nyanyi Bareng Jakarta."
+    },
+    "event": {
+      "nama_event": "Nyanyi Bareng Jakarta – Bareng-Bareng Menjaga Kewarasan",
+      "deskripsi": "Acara bernyanyi bersama dan sesi Temukan Rasa bersama Adjie Santosoputro di Swasana Lippo Kuningan, Jakarta Selatan.",
+      "tanggal": "2026-11-24T18:30:00+07:00",
+      "lokasi": "Swasana Lippo Kuningan Grand Ballroom, Jakarta Selatan",
+      "kategori_event": "Akustik",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/11/01M7HVKXX3DEN7YMMFB32JMHAF/800w.webp",
+      "source_url": "https://infokonser.id/konser/nyanyi-bareng-jakarta-bareng-bareng-menjaga-kewarasan"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "RSVP Wanita",
+        "harga": 150000
+      },
+      {
+        "nama_kelas": "RSVP Pria",
+        "harga": 150000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "Badailovecoustic",
+      "genre": "Akustik",
+      "bio": "Penampil musik akustik."
+    },
+    "event": {
+      "nama_event": "Badailovecoustic With Interaksi Space Pamulang",
+      "deskripsi": "Pertunjukan akustik Badailovecoustic di Interaksi Space Pamulang, Tangerang Selatan.",
+      "tanggal": "2026-11-27T16:00:00+07:00",
+      "lokasi": "Interaksi Space Pamulang, Tangerang Selatan",
+      "kategori_event": "Akustik",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/10/01M5YYNJQDNCREEJ8B1K5YTS9K/800w.webp",
+      "source_url": "https://infokonser.id/konser/badailovecoustic-with-interaksi-space-pamulang"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "Tiket",
+        "harga": 25000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "BLUEPHORIA",
+      "genre": "Pop / Various",
+      "bio": "Acara musik perayaan Dies Natalis FISIP Universitas Tanjungpura."
+    },
+    "event": {
+      "nama_event": "BLUEPHORIA",
+      "deskripsi": "Malam puncak Dies Natalis ke-61 FISIP Universitas Tanjungpura di Pontianak.",
+      "tanggal": "2026-11-26T15:00:00+07:00",
+      "lokasi": "Gedung Auditorium Universitas Tanjungpura, Pontianak",
+      "kategori_event": "Festival",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/11/01M70E3VZS8A5P13NDH0YB4FEY/800w.webp",
+      "source_url": "https://infokonser.id/konser/bluephoria"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "Tiket",
+        "harga": 100000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "Joyland Sessions",
+      "genre": "Indie / Rock / Electronic",
+      "bio": "Festival musik multi-genre yang diselenggarakan Plainsong Live."
+    },
+    "event": {
+      "nama_event": "Joyland Sessions 2026",
+      "deskripsi": "Festival musik dua hari di GBK Senayan dengan Caribou, Slowdive, Ichiko Aoba, DOMi & JD Beck, dan musisi Indonesia maupun internasional.",
+      "tanggal": "2026-11-28T14:30:00+07:00",
+      "lokasi": "GBK Senayan, Jakarta Pusat",
+      "kategori_event": "Festival",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/10/01M59BW9X2WFM7ZY324KDVYS5J/800w.webp",
+      "source_url": "https://infokonser.id/konser/joyland-sessions-2026"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "Presale 1 – 2 Day Pass",
+        "harga": 588000
+      },
+      {
+        "nama_kelas": "Presale 2; Early Entry – 2 Day Pass",
+        "harga": 688000
+      },
+      {
+        "nama_kelas": "Presale 2; General Admission – 2 Day Pass",
+        "harga": 788000
+      },
+      {
+        "nama_kelas": "Presale 3; Early Entry – 2 Day Pass",
+        "harga": 888000
+      },
+      {
+        "nama_kelas": "Presale 3; General Admission – 2 Day Pass",
+        "harga": 988000
+      },
+      {
+        "nama_kelas": "Presale 4; Early Entry – 2 Day Pass",
+        "harga": 1088000
+      },
+      {
+        "nama_kelas": "Presale 4; General Admission – 2 Day Pass",
+        "harga": 1188000
+      }
+    ]
+  },
+  {
+    "artis": {
+      "nama": "Kings of Convenience",
+      "genre": "Indie Folk / Acoustic",
+      "bio": "Duo musik indie folk asal Norwegia."
+    },
+    "event": {
+      "nama_event": "Kings of Convenience Live in Indonesia",
+      "deskripsi": "Konser Kings of Convenience di JIExpo Convention Centre and Theatre, Jakarta Pusat, pada 28 dan 29 November 2026.",
+      "tanggal": "2026-11-28T00:00:00+07:00",
+      "lokasi": "JIExpo Convention Centre and Theatre, Jakarta Pusat",
+      "kategori_event": "Akustik",
+      "image_url": "https://infokonser.id/storage/uploads/media/2026/11/01M6C2MM9RVBBN0QAEQY76P6MB/800w.webp",
+      "source_url": "https://infokonser.id/konser/kings-of-convenience-live-in-indonesia"
+    },
+    "kategori": [
+      {
+        "nama_kelas": "CAT 1",
+        "harga": 1500000
+      },
+      {
+        "nama_kelas": "CAT 2",
+        "harga": 1375000
+      },
+      {
+        "nama_kelas": "CAT 3",
+        "harga": 1275000
+      },
+      {
+        "nama_kelas": "CAT 4",
+        "harga": 1125000
+      },
+      {
+        "nama_kelas": "CAT 5",
+        "harga": 975000
+      }
+    ]
+  }
+]
