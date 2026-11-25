@@ -15,6 +15,7 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 const forgotPasswordRoutes = require('./routes/forgotPasswordRoutes');
 const offlineRoutes = require('./routes/offlineRoutes');
 const tiketRoutes = require('./routes/tiketRoutes');
+const wishlistRoutes = require('./routes/wishlistRoutes');
 const { assertQrSecret } = require('./services/tiketService');
 
 const app = express();
@@ -49,6 +50,7 @@ app.use('/api/pesanan', pesananRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/offline', offlineRoutes);
 app.use('/api/tiket', tiketRoutes);
+app.use('/api/wishlist', wishlistRoutes);
 
 // Route default
 app.get('/', (req, res) => {
@@ -63,6 +65,7 @@ app.get('/', (req, res) => {
       kategori_tiket: '/api/kategori-tiket',
       pesanan: '/api/pesanan',
       dashboard: '/api/dashboard',
+      wishlist: '/api/wishlist',
     },
   });
 });

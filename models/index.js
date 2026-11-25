@@ -6,6 +6,7 @@ const KategoriTiket = require('./KategoriTiket');
 const Pesanan = require('./Pesanan');
 const PasswordResetOtp = require('./PasswordResetOtp');
 const Tiket = require('./Tiket');
+const Wishlist = require('./Wishlist');
 
 // ===== RELASI =====
 
@@ -39,6 +40,12 @@ Tiket.belongsTo(User, { foreignKey: 'digunakan_oleh', as: 'petugas_scan' });
 User.hasMany(PasswordResetOtp, { foreignKey: 'user_id', as: 'password_reset_otps' });
 PasswordResetOtp.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
+// User -> Wishlist -> Event (event yang disimpan pelanggan)
+User.hasMany(Wishlist, { foreignKey: 'user_id', as: 'wishlist' });
+Wishlist.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+Event.hasMany(Wishlist, { foreignKey: 'event_id', as: 'wishlist' });
+Wishlist.belongsTo(Event, { foreignKey: 'event_id', as: 'event' });
+
 module.exports = {
   sequelize,
   User,
@@ -48,4 +55,5 @@ module.exports = {
   Pesanan,
   Tiket,
   PasswordResetOtp,
+  Wishlist,
 };

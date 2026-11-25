@@ -329,6 +329,7 @@ const getRiwayatPesanan = async (req, res) => {
             'tanggal',
             'lokasi',
             'image_url',
+            'status',
           ],
           include: [
             {
