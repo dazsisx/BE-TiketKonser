@@ -7,6 +7,7 @@
  * sebelum penjualan sungguhan. Event yang sudah ada dilewati seluruhnya tanpa mengubah
  * poster, kategori, harga, kuota, atau data event lama.
  */
+const { guessKota } = require('../utils/kotaEvent');
 const fs = require('fs');
 const path = require('path');
 const DATA = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/verified-events-nov-dec-2026.json'), 'utf8'));
@@ -44,6 +45,7 @@ async function seedVerifiedEvents(models, { apply = false, log = console.log } =
         const { source_url, ...eventFields } = item.event;
         event = await Event.create({
           ...eventFields,
+          kota: guessKota(eventFields.lokasi, { segmenAkhir: true }),
           artist_id: artist.id,
           status: 'aktif',
         }, { transaction });

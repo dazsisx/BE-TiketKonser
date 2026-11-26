@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const { sequelize, Event, Artis, KategoriTiket, Pesanan } = require('../models');
 const { removeUploadFile, removeUploadFileIfUnused } = require('../utils/uploadPaths');
 const { resolveKategoriEvent } = require('../utils/kategoriEvent');
+const { normalizeKota, guessKota } = require('../utils/kotaEvent');
 
 // Hapus file poster lama hanya jika tidak ada event lain yang masih memakainya
 const removePosterIfUnused = (stored) =>
@@ -40,6 +41,11 @@ const getAllEvent = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Kategori event tidak dikenal.' });
       }
       where.kategori_event = label;
+    }
+    // ?kota=Jakarta (tidak peduli huruf besar/kecil, "Kota Bandung" sama dengan "bandung"). Kosong = semua kota.
+    if (req.query.kota) {
+      const kota = normalizeKota(req.query.kota);
+      if (kota) where[Op.and] = [sequelize.where(sequelize.fn('lower', sequelize.col('Event.kota')), kota.toLowerCase())];
     }
 
     const events = await Event.findAll({
@@ -109,7 +115,7 @@ const getEventById = async (req, res) => {
 const createEvent = async (req, res) => {
   let saved = false;
   try {
-    const { nama_event, deskripsi, tanggal, lokasi, artis_id, artist_id, kategori_event } = req.body;
+    const { nama_event, deskripsi, tanggal, lokasi, kota, artis_id, artist_id, kategori_event } = req.body;
     const resolvedArtistId = Number(artis_id ?? artist_id);
     const resolvedKategori = resolveKategoriEvent(kategori_event);
     if (kategori_event && !resolvedKategori) {
@@ -136,6 +142,8 @@ const createEvent = async (req, res) => {
       deskripsi: deskripsi || null,
       tanggal,
       lokasi,
+      // kosong -> ditebak dari lokasi (null kalau tidak dikenal)
+      kota: normalizeKota(kota) ?? guessKota(lokasi),
       artist_id: resolvedArtistId,
       kategori_event: resolvedKategori,
       image_url: req.file ? req.file.path : null,
@@ -181,7 +189,7 @@ const updateEvent = async (req, res) => {
       });
     }
 
-    const { nama_event, deskripsi, tanggal, lokasi, artis_id, artist_id, status, kategori_event } = req.body;
+    const { nama_event, deskripsi, tanggal, lokasi, kota, artis_id, artist_id, status, kategori_event } = req.body;
     // undefined = tidak diubah; string kosong = hapus kategori; selain itu harus valid
     let nextKategori = event.kategori_event;
     if (kategori_event !== undefined) {
@@ -190,6 +198,9 @@ const updateEvent = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Kategori event tidak dikenal.' });
       }
     }
+    // undefined = tidak diubah; string kosong = tebak ulang dari lokasi
+    const nextLokasi = lokasi || event.lokasi;
+    const nextKota = kota !== undefined ? (normalizeKota(kota) ?? guessKota(nextLokasi)) : event.kota;
     const resolvedArtistId = Number(artis_id ?? artist_id ?? event.artist_id ?? event.artis_id);
     const nextImageUrl = req.file ? req.file.path : (req.body.image_url ?? req.body.poster ?? event.image_url ?? event.poster ?? null);
 
@@ -199,7 +210,8 @@ const updateEvent = async (req, res) => {
       nama_event: nama_event || event.nama_event,
       deskripsi: deskripsi !== undefined ? deskripsi : event.deskripsi,
       tanggal: tanggal || event.tanggal,
-      lokasi: lokasi || event.lokasi,
+      lokasi: nextLokasi,
+      kota: nextKota,
       artist_id: resolvedArtistId,
       kategori_event: nextKategori,
       image_url: nextImageUrl,
@@ -371,4 +383,4 @@ module.exports = {
   deleteEvent,
   tutupEvent,
   bukaEvent,
-};
+};

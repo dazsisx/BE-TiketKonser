@@ -16,6 +16,8 @@
  *   node scripts/seedLoketEvents.js            # dry run
  *   node scripts/seedLoketEvents.js --apply    # tulis ke Supabase
  */
+const { guessKota } = require('../utils/kotaEvent');
+
 const SEED_DATA = [
   {
     artis: { nama: "D'MASIV", genre: 'Pop Rock', bio: "Band pop rock Indonesia. (data contoh)" },
@@ -161,7 +163,7 @@ const seedEvents = async ({ sequelize, Artis, Event, KategoriTiket }, { apply = 
         log(`  + event ${verb}: ${item.event.nama_event} — ${item.event.tanggal}`);
         event = apply
           ? await Event.create(
-              { ...item.event, artist_id: artis.id, image_url: null, status: 'aktif' },
+              { ...item.event, kota: guessKota(item.event.lokasi, { segmenAkhir: true }), artist_id: artis.id, image_url: null, status: 'aktif' },
               { transaction: t }
             )
           : null;

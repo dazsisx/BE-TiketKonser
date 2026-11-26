@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const { LABELS } = require('../utils/kategoriEvent');
+const { MAX_LENGTH: KOTA_MAX } = require('../utils/kotaEvent');
 
 const Event = sequelize.define('Event', {
   id: {
@@ -33,6 +34,12 @@ const Event = sequelize.define('Event', {
     validate: {
       notEmpty: { msg: 'Lokasi tidak boleh kosong' },
     },
+  },
+  // Kota untuk filter lokasi di FE. NULL = belum diisi. Ditulis lewat normalizeKota (utils/kotaEvent.js).
+  kota: {
+    type: DataTypes.STRING(KOTA_MAX),
+    allowNull: true,
+    defaultValue: null,
   },
   image_url: {
     type: DataTypes.TEXT,
@@ -76,4 +83,4 @@ const Event = sequelize.define('Event', {
   timestamps: false,
 });
 
-module.exports = Event;
+module.exports = Event;
