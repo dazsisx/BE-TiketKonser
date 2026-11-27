@@ -5,6 +5,7 @@ const { withPembeli } = require('../utils/pesananFormat');
 const { konfirmasiLunas, tutupTanpaBayar } = require('../services/pembayaranService');
 const { daftarTiket } = require('../services/tiketService');
 const { createSnapTransaction, isConfigured, verifyNotification } = require('../services/midtransService');
+const { assertEventOpenForSale } = require('../utils/eventSales');
 
 const {
   KODE_REGEX,
@@ -54,9 +55,8 @@ const buatPesanan = async (req, res) => {
     const pesanan = await sequelize.transaction(async (t) => {
       const event = await Event.findByPk(event_id, { transaction: t });
       if (!event) throw httpError(404, 'Event tidak ditemukan.');
-      if (event.status !== 'aktif') {
-        throw httpError(400, 'Penjualan tiket untuk event ini sedang tidak dibuka.');
-      }
+      // Aturan yang sama dengan penjualan offline: status 'aktif' dan belum lewat hari acara (WIB)
+      assertEventOpenForSale(event, 'online');
 
       const kategori = await KategoriTiket.findOne({
         where: { id: kategori_tiket_id, event_id },
@@ -431,12 +431,18 @@ const getAllPesanan = async (req, res) => {
         {
           model: Event,
           as: 'event',
-          attributes: ['id', 'nama_event', 'tanggal'],
+          attributes: ['id', 'nama_event', 'tanggal', 'lokasi'],
         },
         {
           model: KategoriTiket,
           as: 'kategori_tiket',
-          attributes: ['nama_kelas', 'harga'],
+          attributes: ['nama_kelas', 'harga', 'area'],
+        },
+        // Petugas loket untuk transaksi offline (null untuk pesanan online)
+        {
+          model: User,
+          as: 'petugas',
+          attributes: ['id', 'nama'],
         },
       ],
       order: [['created_at', 'DESC']],

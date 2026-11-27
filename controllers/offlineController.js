@@ -47,7 +47,7 @@ const scopeOffline = (user) =>
 
 const includeRelasi = [
   { model: Event, as: 'event', attributes: ['id', 'nama_event', 'tanggal', 'lokasi'] },
-  { model: KategoriTiket, as: 'kategori_tiket', attributes: ['id', 'nama_kelas', 'harga'] },
+  { model: KategoriTiket, as: 'kategori_tiket', attributes: ['id', 'nama_kelas', 'harga', 'area'] },
   { model: User, as: 'petugas', attributes: ['id', 'nama'] },
 ];
 

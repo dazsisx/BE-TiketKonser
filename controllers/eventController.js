@@ -3,6 +3,14 @@ const { sequelize, Event, Artis, KategoriTiket, Pesanan } = require('../models')
 const { removeUploadFile, removeUploadFileIfUnused } = require('../utils/uploadPaths');
 const { resolveKategoriEvent } = require('../utils/kategoriEvent');
 const { normalizeKota, guessKota } = require('../utils/kotaEvent');
+const { resolveVenueLayout, VENUE_LAYOUT_KEYS } = require('../utils/venueLayout');
+const { normalizeTanggalWIB } = require('../utils/tanggalEvent');
+
+// Status event di database (ENUM events.status). 'aktif' = penjualan dibuka.
+const STATUS_EVENT = ['draft', 'aktif', 'ditutup', 'selesai'];
+
+// undefined/null/string kosong dianggap "tidak diisi"
+const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== '';
 
 // Hapus file poster lama hanya jika tidak ada event lain yang masih memakainya
 const removePosterIfUnused = (stored) =>
@@ -115,11 +123,27 @@ const getEventById = async (req, res) => {
 const createEvent = async (req, res) => {
   let saved = false;
   try {
-    const { nama_event, deskripsi, tanggal, lokasi, kota, artis_id, artist_id, kategori_event } = req.body;
+    const { nama_event, deskripsi, tanggal, lokasi, kota, artis_id, artist_id, kategori_event, venue_layout, status } = req.body;
     const resolvedArtistId = Number(artis_id ?? artist_id);
     const resolvedKategori = resolveKategoriEvent(kategori_event);
     if (kategori_event && !resolvedKategori) {
       return res.status(400).json({ success: false, message: 'Kategori event tidak dikenal.' });
+    }
+    // kosong = otomatis (FE menebak denah dari lokasi)
+    const resolvedLayout = resolveVenueLayout(venue_layout);
+    if (hasValue(venue_layout) && !resolvedLayout) {
+      return res.status(400).json({
+        success: false,
+        message: `Denah venue tidak dikenal. Pilihan: ${VENUE_LAYOUT_KEYS.join(', ')}.`,
+      });
+    }
+    // kosong = langsung dijual (perilaku lama)
+    const resolvedStatus = hasValue(status) ? String(status).trim().toLowerCase() : 'aktif';
+    if (!STATUS_EVENT.includes(resolvedStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Status event tidak valid. Pilihan: ${STATUS_EVENT.join(', ')}.`,
+      });
     }
 
     if (!nama_event || !tanggal || !lokasi || !resolvedArtistId) {
@@ -140,14 +164,15 @@ const createEvent = async (req, res) => {
     const event = await Event.create({
       nama_event,
       deskripsi: deskripsi || null,
-      tanggal,
+      tanggal: normalizeTanggalWIB(tanggal),
       lokasi,
       // kosong -> ditebak dari lokasi (null kalau tidak dikenal)
       kota: normalizeKota(kota) ?? guessKota(lokasi),
       artist_id: resolvedArtistId,
       kategori_event: resolvedKategori,
+      venue_layout: resolvedLayout,
       image_url: req.file ? req.file.path : null,
-      status: 'aktif',
+      status: resolvedStatus,
     });
     saved = true;
 
@@ -189,13 +214,35 @@ const updateEvent = async (req, res) => {
       });
     }
 
-    const { nama_event, deskripsi, tanggal, lokasi, kota, artis_id, artist_id, status, kategori_event } = req.body;
+    const { nama_event, deskripsi, tanggal, lokasi, kota, artis_id, artist_id, status, kategori_event, venue_layout } = req.body;
     // undefined = tidak diubah; string kosong = hapus kategori; selain itu harus valid
     let nextKategori = event.kategori_event;
     if (kategori_event !== undefined) {
       nextKategori = resolveKategoriEvent(kategori_event);
       if (String(kategori_event).trim() && !nextKategori) {
         return res.status(400).json({ success: false, message: 'Kategori event tidak dikenal.' });
+      }
+    }
+    // undefined = tidak diubah; string kosong = otomatis (null); selain itu harus denah yang dikenal
+    let nextLayout = event.venue_layout;
+    if (venue_layout !== undefined) {
+      nextLayout = resolveVenueLayout(venue_layout);
+      if (hasValue(venue_layout) && !nextLayout) {
+        return res.status(400).json({
+          success: false,
+          message: `Denah venue tidak dikenal. Pilihan: ${VENUE_LAYOUT_KEYS.join(', ')}.`,
+        });
+      }
+    }
+    // undefined/kosong = tidak diubah; selain itu harus salah satu status yang dikenal
+    let nextStatus = event.status;
+    if (hasValue(status)) {
+      nextStatus = String(status).trim().toLowerCase();
+      if (!STATUS_EVENT.includes(nextStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: `Status event tidak valid. Pilihan: ${STATUS_EVENT.join(', ')}.`,
+        });
       }
     }
     // undefined = tidak diubah; string kosong = tebak ulang dari lokasi
@@ -209,13 +256,14 @@ const updateEvent = async (req, res) => {
     await event.update({
       nama_event: nama_event || event.nama_event,
       deskripsi: deskripsi !== undefined ? deskripsi : event.deskripsi,
-      tanggal: tanggal || event.tanggal,
+      tanggal: tanggal ? normalizeTanggalWIB(tanggal) : event.tanggal,
       lokasi: nextLokasi,
       kota: nextKota,
       artist_id: resolvedArtistId,
       kategori_event: nextKategori,
+      venue_layout: nextLayout,
       image_url: nextImageUrl,
-      status: status || event.status,
+      status: nextStatus,
     });
     saved = true;
 

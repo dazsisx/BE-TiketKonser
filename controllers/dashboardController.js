@@ -1,5 +1,6 @@
 const { Pesanan, Event, User, KategoriTiket, Artis } = require('../models');
 const { Op } = require('sequelize');
+const { startOfDayWIB } = require('../utils/eventSales');
 
 // @desc    Data statistik dashboard admin
 // @route   GET /api/dashboard
@@ -61,8 +62,9 @@ const getDashboard = async (req, res) => {
     // Total artis
     const totalArtis = await Artis.count();
 
-    // 5 event dengan tiket terjual terbanyak
+    // 5 acara terdekat (mulai hari ini, WIB); acara yang sudah lewat tidak ditampilkan
     const topEvent = await Event.findAll({
+      where: { tanggal: { [Op.gte]: startOfDayWIB(new Date()) } },
       include: [
         {
           model: Artis,
@@ -124,7 +126,12 @@ const getDashboard = async (req, res) => {
           pendapatan_offline: pendapatanOffline || 0,
         },
 
-        top_event: topEvent,
+        // FE membaca `poster` (sama dengan GET /api/event); kolom aslinya image_url / banner
+        top_event: topEvent.map((event) => {
+          const data = event.toJSON();
+          const poster = data.image_url ?? data.banner ?? null;
+          return { ...data, poster };
+        }),
         pesanan_menunggu_verifikasi: pesananTerbaru,
       },
     });

@@ -15,6 +15,9 @@ const startOfNextDayWIB = (date) => {
   return new Date(startOfDay + DAY_MS);
 };
 
+// Awal hari (00:00:00 WIB) dari hari yang memuat `date`, sebagai Date (UTC).
+const startOfDayWIB = (date) => new Date(startOfNextDayWIB(date).getTime() - DAY_MS);
+
 /**
  * Pastikan event masih boleh dijual (online maupun offline).
  * - status harus 'aktif'
@@ -42,4 +45,4 @@ const assertEventOpenForSale = (event, channel, now = new Date()) => {
   }
 };
 
-module.exports = { assertEventOpenForSale, startOfNextDayWIB };
+module.exports = { assertEventOpenForSale, startOfNextDayWIB, startOfDayWIB };
