@@ -1,4 +1,5 @@
-const { sequelize, Pesanan, Event, KategoriTiket, User } = require('../models');
+const { Op, fn, col, where: sqlWhere } = require('sequelize');
+const { sequelize, Pesanan, Event, KategoriTiket, User, CekPesananOtp } = require('../models');
 const crypto = require('crypto');
 const fs = require('fs');
 const { withPembeli } = require('../utils/pesananFormat');
@@ -6,14 +7,23 @@ const { konfirmasiLunas, tutupTanpaBayar } = require('../services/pembayaranServ
 const { daftarTiket } = require('../services/tiketService');
 const { createSnapTransaction, isConfigured, verifyNotification } = require('../services/midtransService');
 const { assertEventOpenForSale } = require('../utils/eventSales');
+const { sendCekPesananOtpEmail } = require('../services/emailService');
+const {
+  OTP_LENGTH,
+  OTP_EXPIRY_MINUTES,
+  MAX_ATTEMPTS,
+  generateOtp,
+  hashOtp,
+  compareOtp,
+  getExpiryDate,
+} = require('../utils/otp');
 
 const {
-  KODE_REGEX,
-  normalisasiKode,
   normalisasiEmail,
   normalisasiTelepon,
   emailValid,
   teleponValid,
+  kunciKontak,
   kontakCocok,
   formatHasilPembelian,
 } = require('../utils/cekPembelian');
@@ -391,7 +401,7 @@ const getDetailPesanan = async (req, res) => {
       });
     }
 
-       const data = pesanan.toJSON();
+    const data = pesanan.toJSON();
     data.tiket = pesanan.status_bayar === 'lunas' ? await daftarTiket(pesanan.id) : [];
 
     return res.status(200).json({
@@ -462,80 +472,176 @@ const getAllPesanan = async (req, res) => {
   }
 };
 
-// @desc    Cek pembelian tanpa login (email atau nomor HP + kode booking)
-// @route   POST /api/pesanan/cek
-// @access  Publik (dibatasi rate limiter)
-const cekPembelian = async (req, res) => {
-  try {
-    const body = req.body || {};
-    const kode = normalisasiKode(body.kode_tiket);
-    const emailMentah = typeof body.email === 'string' ? body.email.trim() : '';
-    const teleponMentah = body.no_telepon === undefined || body.no_telepon === null
-      ? ''
-      : String(body.no_telepon).trim();
+// ===== CEK PEMBELIAN TANPA LOGIN (verifikasi OTP) =====
 
-    if (!KODE_REGEX.test(kode)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Format kode booking tidak valid. Contoh: TKT-1A2B3C4D.',
-      });
-    }
-    if (!emailMentah && !teleponMentah) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email atau nomor HP wajib diisi.',
-      });
-    }
-    if (emailMentah && teleponMentah) {
-      return res.status(400).json({
-        success: false,
-        message: 'Gunakan salah satu: email atau nomor HP.',
-      });
-    }
+const MAX_PESANAN_CEK = 20;
 
-    const email = normalisasiEmail(emailMentah);
-    const telepon = normalisasiTelepon(teleponMentah);
+// Baca & validasi email / nomor HP dari body. Mengembalikan { error } atau { email, telepon }.
+const bacaKontakCek = (body = {}) => {
+  const emailMentah = typeof body.email === 'string' ? body.email.trim() : '';
+  const teleponMentah =
+    body.no_telepon === undefined || body.no_telepon === null ? '' : String(body.no_telepon).trim();
 
-    if (emailMentah && !emailValid(email)) {
-      return res.status(400).json({ success: false, message: 'Format email tidak valid.' });
-    }
-    if (teleponMentah && !teleponValid(telepon)) {
-      return res.status(400).json({ success: false, message: 'Format nomor HP tidak valid.' });
-    }
+  if (!emailMentah && !teleponMentah) return { error: 'Email atau nomor HP wajib diisi.' };
+  if (emailMentah && teleponMentah) return { error: 'Gunakan salah satu: email atau nomor HP.' };
 
-    const pesanan = await Pesanan.findOne({
-      where: { kode_tiket: kode },
-      include: [
-        { model: User, as: 'user', attributes: ['id', 'nama', 'email', 'no_telepon'] },
-        { model: Event, as: 'event', attributes: ['id', 'nama_event', 'tanggal', 'lokasi', 'status'] },
-        { model: KategoriTiket, as: 'kategori_tiket', attributes: ['id', 'nama_kelas', 'harga'] },
+  const email = normalisasiEmail(emailMentah);
+  const telepon = normalisasiTelepon(teleponMentah);
+  if (emailMentah && !emailValid(email)) return { error: 'Format email tidak valid.' };
+  if (teleponMentah && !teleponValid(telepon)) return { error: 'Format nomor HP tidak valid.' };
+
+  return { email, telepon };
+};
+
+// Semua pesanan yang kontak pembelinya cocok (akun pembeli online atau data pembeli offline).
+const cariPesananByKontak = async ({ email, telepon }) => {
+  let kondisi;
+  if (email) {
+    kondisi = {
+      [Op.or]: [
+        sqlWhere(fn('lower', col('user.email')), email),
+        sqlWhere(fn('lower', col('Pesanan.email_pembeli')), email),
       ],
-    });
+    };
+  } else {
+    // 0812xxx -> cocokkan juga dengan 62812xxx dan 812xxx; tanda baca/spasi diabaikan
+    const inti = telepon.slice(1);
+    const varian = [`0${inti}`, `62${inti}`, inti];
+    const digits = (kolom) =>
+      sqlWhere(fn('regexp_replace', col(kolom), '[^0-9]', '', 'g'), { [Op.in]: varian });
+    kondisi = { [Op.or]: [digits('user.no_telepon'), digits('Pesanan.no_telepon_pembeli')] };
+  }
 
-    // Satu pesan untuk semua kegagalan (kode salah / kontak tidak cocok),
-    // supaya orang luar tidak bisa menebak email atau nomor yang terdaftar.
-    if (!pesanan || !kontakCocok(pesanan, { email, telepon })) {
-      return res.status(404).json({
-        success: false,
-        message: 'Pesanan tidak ditemukan. Periksa kembali email/nomor HP dan kode booking.',
-      });
+  const rows = await Pesanan.findAll({
+    where: kondisi,
+    include: [
+      { model: User, as: 'user', attributes: ['id', 'nama', 'email', 'no_telepon'] },
+      { model: Event, as: 'event', attributes: ['id', 'nama_event', 'tanggal', 'lokasi', 'status'] },
+      { model: KategoriTiket, as: 'kategori_tiket', attributes: ['id', 'nama_kelas', 'harga'] },
+    ],
+    order: [['createdAt', 'DESC']],
+    limit: MAX_PESANAN_CEK,
+  });
+
+  // Pengaman tambahan: cocokkan ulang di JavaScript dengan aturan normalisasi yang sama.
+  return rows.filter((p) => kontakCocok(p, { email, telepon }));
+};
+
+// @desc    Kirim OTP cek pesanan ke email pembeli (tanpa login)
+// @route   POST /api/pesanan/cek/kirim-otp
+// @access  Publik (dibatasi rate limiter)
+const kirimOtpCekPembelian = async (req, res) => {
+  try {
+    const kontak = bacaKontakCek(req.body);
+    if (kontak.error) {
+      return res.status(400).json({ success: false, message: kontak.error });
     }
 
-        // Tiket + QR diambil dari tabel `tiket` dan hanya untuk pesanan lunas
-    const tiket =
-      pesanan.status_bayar === 'lunas' ? await daftarTiket(pesanan.id, { sertakanKode: false }) : [];
+    const pesananList = await cariPesananByKontak(kontak);
 
+    // Email tujuan: email yang diketik, atau (jika cari lewat nomor HP) email yang tersimpan di pesanan.
+    const emailTujuan =
+      kontak.email ||
+      pesananList
+        .map((p) => (p.user && p.user.email) || p.email_pembeli)
+        .find(Boolean);
+
+    if (pesananList.length > 0 && emailTujuan) {
+      const kunci = kunciKontak(kontak);
+
+      // Nonaktifkan OTP lama yang belum dipakai untuk kontak ini.
+      await CekPesananOtp.update({ is_used: true }, { where: { kontak: kunci, is_used: false } });
+
+      const otp = generateOtp();
+      await CekPesananOtp.create({
+        kontak: kunci,
+        email_tujuan: emailTujuan,
+        otp_hash: await hashOtp(otp),
+        expires_at: getExpiryDate(),
+      });
+
+      await sendCekPesananOtpEmail({ to: emailTujuan, otp, expiryMinutes: OTP_EXPIRY_MINUTES });
+    }
+
+    // Balasan sama untuk semua kasus, supaya orang luar tidak bisa menebak email/nomor yang terdaftar.
     return res.status(200).json({
       success: true,
-      data: formatHasilPembelian(pesanan, tiket),
+      message: 'Jika ada pesanan yang cocok, kode OTP telah dikirim ke email pembeli.',
+      data: { otp_length: OTP_LENGTH, berlaku_menit: OTP_EXPIRY_MINUTES },
+    });
+  } catch (error) {
+    console.error('kirimOtpCekPembelian error:', error.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server.' });
+  }
+};
+
+// @desc    Verifikasi OTP lalu kembalikan daftar pesanan (tanpa login)
+// @route   POST /api/pesanan/cek/verifikasi
+// @access  Publik (dibatasi rate limiter)
+const verifikasiOtpCekPembelian = async (req, res) => {
+  try {
+    const body = req.body || {};
+    const kontak = bacaKontakCek(body);
+    if (kontak.error) {
+      return res.status(400).json({ success: false, message: kontak.error });
+    }
+
+    const otp = typeof body.otp === 'string' || typeof body.otp === 'number' ? String(body.otp).trim() : '';
+    if (!new RegExp(`^\\d{${OTP_LENGTH}}$`).test(otp)) {
+      return res.status(400).json({ success: false, message: `Masukkan ${OTP_LENGTH} digit kode OTP.` });
+    }
+
+    const record = await CekPesananOtp.findOne({
+      where: { kontak: kunciKontak(kontak), is_used: false },
+      order: [['created_at', 'DESC']],
     });
 
+    if (!record) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Kode OTP tidak valid atau sudah kedaluwarsa.' });
+    }
+    if (new Date() > record.expires_at) {
+      return res.status(400).json({ success: false, message: 'Kode OTP sudah kedaluwarsa. Minta kode baru.' });
+    }
+    if (record.attempts >= MAX_ATTEMPTS) {
+      return res
+        .status(429)
+        .json({ success: false, message: 'Terlalu banyak percobaan. Minta kode OTP baru.' });
+    }
+
+    if (!(await compareOtp(otp, record.otp_hash))) {
+      await record.increment('attempts');
+      return res.status(400).json({ success: false, message: 'Kode OTP tidak valid.' });
+    }
+
+    // OTP hanya berlaku sekali. Update bersyarat supaya dua request bersamaan tidak sama-sama lolos.
+    const [terpakai] = await CekPesananOtp.update(
+      { is_used: true },
+      { where: { id: record.id, is_used: false } }
+    );
+    if (!terpakai) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Kode OTP tidak valid atau sudah kedaluwarsa.' });
+    }
+
+    const pesananList = await cariPesananByKontak(kontak);
+
+    // Tiket + QR diambil dari tabel `tiket` dan hanya untuk pesanan lunas
+    const data = await Promise.all(
+      pesananList.map(async (pesanan) =>
+        formatHasilPembelian(
+          pesanan,
+          pesanan.status_bayar === 'lunas' ? await daftarTiket(pesanan.id, { sertakanKode: false }) : []
+        )
+      )
+    );
+
+    return res.status(200).json({ success: true, data });
   } catch (error) {
-    console.error('cekPembelian error:', error.message);
-    return res.status(500).json({
-      success: false,
-      message: 'Terjadi kesalahan pada server.',
-    });
+    console.error('verifikasiOtpCekPembelian error:', error.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan pada server.' });
   }
 };
 
@@ -546,6 +652,7 @@ module.exports = {
   getRiwayatPesanan,
   getDetailPesanan,
   getAllPesanan,
-  cekPembelian,
+  kirimOtpCekPembelian,
+  verifikasiOtpCekPembelian,
   midtransNotification,
 };

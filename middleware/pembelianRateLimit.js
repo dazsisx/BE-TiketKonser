@@ -1,39 +1,32 @@
-// middleware/pembelianRateLimit.js
 const rateLimit = require('express-rate-limit');
+const { normalisasiEmail, normalisasiTelepon } = require('../utils/cekPembelian');
 
-const { KODE_REGEX, normalisasiKode } = require('../utils/cekPembelian');
+const kontakKey = (req) => {
+  const body = req.body || {};
+  const email = normalisasiEmail(body.email);
+  if (email) return `email:${email}`;
+  const tel = normalisasiTelepon(body.no_telepon);
+  return tel ? `tel:${tel}` : 'kosong';
+};
 
-// Kode booking hanya 8 karakter hex, jadi percobaan tebak harus dibatasi.
-// Hanya permintaan yang gagal (status >= 400) yang dihitung: maksimal 10x per 15 menit per IP.
-const cekPembelianLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
-  skipSuccessfulRequests: true,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.',
-  },
+// Kirim OTP: maks 5x / 15 menit per IP
+const kirimOtpIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false,
+  message: { success: false, message: 'Terlalu banyak permintaan kode. Coba lagi dalam beberapa menit.' },
 });
 
-// Batas kedua per kode booking (bukan per IP), supaya penebak tidak lolos hanya dengan ganti IP.
-// Permintaan dengan format kode tidak valid dilewati di sini (sudah dihitung limiter IP),
-// supaya tidak semua kode tidak valid berbagi satu hitungan.
-// Konsekuensi: orang lain bisa membuat satu kode terkunci sementara dengan sengaja salah menebak;
-// karena itu batasnya lebih longgar (30 kegagalan per jam).
-const cekPembelianKodeLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  limit: 30,
-  skipSuccessfulRequests: true,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => !KODE_REGEX.test(normalisasiKode(req.body && req.body.kode_tiket)),
-  keyGenerator: (req) => `kode:${normalisasiKode(req.body && req.body.kode_tiket)}`,
-  message: {
-    success: false,
-    message: 'Terlalu banyak percobaan. Silakan coba lagi beberapa saat.',
-  },
+// Kirim OTP: maks 3x / 15 menit per email/nomor, supaya email orang lain tidak dibanjiri OTP
+const kirimOtpKontakLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, limit: 3, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req) => `kirim:${kontakKey(req)}`,
+  message: { success: false, message: 'Terlalu banyak permintaan kode. Coba lagi dalam beberapa menit.' },
 });
 
-module.exports = { cekPembelianLimiter, cekPembelianKodeLimiter };
+// Verifikasi: hanya percobaan gagal yang dihitung, maks 10x / 15 menit per IP
+const verifikasiOtpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, limit: 10, skipSuccessfulRequests: true,
+  standardHeaders: true, legacyHeaders: false,
+  message: { success: false, message: 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.' },
+});
+
+module.exports = { kirimOtpIpLimiter, kirimOtpKontakLimiter, verifikasiOtpLimiter };

@@ -1,10 +1,8 @@
-    // Helper untuk endpoint publik POST /api/pesanan/cek (cek pembelian tanpa login)
+// Helper untuk cek pembelian tanpa login (verifikasi lewat OTP):
+//   POST /api/pesanan/cek/kirim-otp
+//   POST /api/pesanan/cek/verifikasi
 
-const KODE_REGEX = /^TKT-[0-9A-F]{8}$/;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const normalisasiKode = (value) =>
-  typeof value === 'string' ? value.trim().toUpperCase() : '';
 
 const normalisasiEmail = (value) =>
   typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -20,6 +18,9 @@ const normalisasiTelepon = (value) => {
 
 const emailValid = (email) => email.length <= 150 && EMAIL_REGEX.test(email);
 const teleponValid = (telepon) => telepon.length >= 9 && telepon.length <= 15;
+
+// Kunci unik kontak untuk menyimpan & mencari OTP: "email:a@b.com" atau "tel:0812xxx"
+const kunciKontak = ({ email, telepon }) => (email ? `email:${email}` : `tel:${telepon}`);
 
 // Cocokkan kontak input dengan semua kontak yang tersimpan untuk pesanan ini:
 // akun pembeli (online) dan data pembeli yang diisi petugas (offline).
@@ -61,19 +62,18 @@ const formatHasilPembelian = (pesanan, tiket = []) => ({
         harga: Number(pesanan.kategori_tiket.harga),
       }
     : null,
-    // true jika pelanggan sudah upload bukti bayar (status masih pending = menunggu verifikasi)
+  // true jika pelanggan sudah upload bukti bayar (status masih pending = menunggu verifikasi)
   bukti_bayar_terunggah: Boolean(pesanan.bukti_bayar),
   // Satu entri per tiket dengan QR sendiri. Hanya terisi untuk pesanan lunas.
   tiket: pesanan.status_bayar === 'lunas' ? tiket : [],
 });
 
 module.exports = {
-  KODE_REGEX,
-  normalisasiKode,
   normalisasiEmail,
   normalisasiTelepon,
   emailValid,
   teleponValid,
+  kunciKontak,
   kontakCocok,
   formatHasilPembelian,
 };

@@ -7,15 +7,23 @@ const {
   getRiwayatPesanan,
   getDetailPesanan,
   getAllPesanan,
-  cekPembelian,
+  kirimOtpCekPembelian,
+  verifikasiOtpCekPembelian,
   midtransNotification,
 } = require('../controllers/pesananController');
 const { protect, adminOnly, pelangganOnly } = require('../middleware/authMiddleware');
 const { upload, uploadToCloudinary, handleUploadError } = require('../middleware/uploadMiddleware');
-const { cekPembelianLimiter, cekPembelianKodeLimiter } = require('../middleware/pembelianRateLimit');
+const {
+  kirimOtpIpLimiter,
+  kirimOtpKontakLimiter,
+  verifikasiOtpLimiter,
+} = require('../middleware/pembelianRateLimit');
 
-// POST /api/pesanan/cek               — cek pembelian tanpa login (email/nomor HP + kode booking)
-router.post('/cek', cekPembelianLimiter, cekPembelianKodeLimiter, cekPembelian);
+// POST /api/pesanan/cek/kirim-otp     — kirim kode OTP ke email pembeli (tanpa login)
+router.post('/cek/kirim-otp', kirimOtpIpLimiter, kirimOtpKontakLimiter, kirimOtpCekPembelian);
+
+// POST /api/pesanan/cek/verifikasi    — verifikasi OTP, lalu kembalikan daftar pesanan (tanpa login)
+router.post('/cek/verifikasi', verifikasiOtpLimiter, verifikasiOtpCekPembelian);
 
 // POST /api/pesanan/webhook/midtrans — notifikasi pembayaran gateway
 router.post('/webhook/midtrans', midtransNotification);

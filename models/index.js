@@ -5,6 +5,7 @@ const Event = require('./Event');
 const KategoriTiket = require('./KategoriTiket');
 const Pesanan = require('./Pesanan');
 const PasswordResetOtp = require('./PasswordResetOtp');
+const CekPesananOtp = require('./CekPesananOtp');
 const Tiket = require('./Tiket');
 const Wishlist = require('./Wishlist');
 
@@ -55,5 +56,6 @@ module.exports = {
   Pesanan,
   Tiket,
   PasswordResetOtp,
+  CekPesananOtp,
   Wishlist,
 };
